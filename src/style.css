@@ -1,0 +1,44 @@
+/* 全局基础样式：深色大屏底色 + 面板公共外观（与 theme.ts 保持一致） */
+:root {
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #040b18;
+}
+
+/* 左右数据面板公共外壳 */
+.panel {
+  width: 340px;
+  padding: 14px 18px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: rgba(7, 19, 38, 0.82);
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 0 24px rgba(0, 229, 255, 0.08),
+    inset 0 0 18px rgba(0, 229, 255, 0.05);
+  color: #d7f5ff;
+}
+
+.panel-title {
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 3px solid #00e5ff;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: #7be8ff;
+}
