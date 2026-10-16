@@ -49,3 +49,27 @@ export const HEATMAP_COLOR_RANGE: [number, number, number, number][] = [
   [255, 196, 77, 245],
   [255, 96, 52, 255],
 ]
+
+/** 指标色带控制点（RGB）：与热力色带同族的青→金→红渐变 */
+const METRIC_RAMP: [number, number, number][] = [
+  [8, 86, 130],
+  [0, 178, 216],
+  [122, 255, 205],
+  [255, 196, 77],
+  [255, 96, 52],
+]
+
+/** 按归一化指标 t∈[0,1] 取色带插值色（RGBA） */
+export function metricRamp(t: number, alpha = 255): [number, number, number, number] {
+  const x = Math.min(Math.max(t, 0), 1) * (METRIC_RAMP.length - 1)
+  const i = Math.min(Math.floor(x), METRIC_RAMP.length - 2)
+  const f = x - i
+  const a = METRIC_RAMP[i]
+  const b = METRIC_RAMP[i + 1]
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * f),
+    Math.round(a[1] + (b[1] - a[1]) * f),
+    Math.round(a[2] + (b[2] - a[2]) * f),
+    alpha,
+  ]
+}

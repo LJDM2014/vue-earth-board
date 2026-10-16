@@ -7,19 +7,6 @@
         <span class="stat-label">{{ stat.label }}</span>
       </div>
     </div>
-    <div class="heatmap-row">
-      <span class="heatmap-label">城市热力图</span>
-      <button
-        type="button"
-        class="toggle"
-        :class="{ on: showHeatmap }"
-        :aria-pressed="showHeatmap"
-        aria-label="切换城市热力图"
-        @click="emit('toggle-heatmap', !showHeatmap)"
-      >
-        <span class="knob" />
-      </button>
-    </div>
   </section>
 </template>
 
@@ -28,11 +15,16 @@ import { computed } from 'vue'
 import { THEME } from '../config/theme'
 import type { FlowOD } from '../mock/flows'
 
-const props = defineProps<{ flows: FlowOD[]; showHeatmap: boolean }>()
-
-const emit = defineEmits<{ 'toggle-heatmap': [enabled: boolean] }>()
+const props = defineProps<{ flows: FlowOD[] }>()
 
 const stats = computed(() => {
+  if (props.flows.length === 0) {
+    return [
+      { label: '飞线条数', value: '--' },
+      { label: '覆盖城市', value: '--' },
+      { label: '累计运量', value: '--' },
+    ]
+  }
   const destCount = new Set(props.flows.map((f) => f.to)).size
   const totalVolume = props.flows.reduce((sum, f) => sum + f.volume, 0)
   return [
@@ -48,7 +40,6 @@ const stats = computed(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 16px;
 }
 
 .stat-cell {
@@ -74,50 +65,5 @@ const stats = computed(() => {
   font-size: 12px;
   letter-spacing: 1px;
   color: v-bind('THEME.textDim');
-}
-
-.heatmap-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.heatmap-label {
-  font-size: 14px;
-  letter-spacing: 1px;
-  color: v-bind('THEME.text');
-}
-
-.toggle {
-  position: relative;
-  width: 46px;
-  height: 24px;
-  border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: rgba(0, 229, 255, 0.08);
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.toggle .knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: v-bind('THEME.textDim');
-  transition: all 0.25s ease;
-}
-
-.toggle.on {
-  background: rgba(0, 229, 255, 0.22);
-  border-color: v-bind('THEME.cyan');
-}
-
-.toggle.on .knob {
-  left: 24px;
-  background: v-bind('THEME.cyan');
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
 }
 </style>

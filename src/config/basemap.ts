@@ -1,6 +1,7 @@
 /**
- * 底图配置：内置多套免 token 底图供界面直接切换（卫星 / 街道 / 深浅色矢量）；
- * 预留天地图（tk 参数）与自托管瓦片（内网部署）的接入位。
+ * 底图配置：内置三套免 token 底图供界面直接切换（卫星影像 / 街景 / 地形晕渲），
+ * 统一走快速稳定的 Esri / Carto CDN，避免多源瓦片拖慢加载。
+ * 卫星与地形为纯 raster 底图（无地名），配合 useMapAnnotations 的矢量注记叠加层使用。
  * 约束：进入 BASEMAP_OPTIONS 的项必须无需任何 API key。
  */
 import type { StyleSpecification } from 'maplibre-gl'
@@ -38,6 +39,37 @@ const ESRI_SATELLITE_STYLE: StyleSpecification = {
   ],
 }
 
+/**
+ * 地形晕渲（Esri World Terrain Base，raster 瓦片免 key）：
+ * 彩色高程分层设色 + 地势起伏，自身无地名注记，天然适合叠加矢量地名层。
+ * 服务 maxzoom 13，大屏视角（复位/下钻 ≤6.5）内清晰，放大过头由 maplibre 过缩放补齐。
+ */
+const ESRI_TERRAIN_STYLE: StyleSpecification = {
+  version: 8,
+  name: 'esri-terrain',
+  sources: {
+    terrain: {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      maxzoom: 13,
+      attribution: 'Terrain © Esri, USGS, NOAA and the GIS User Community',
+    },
+  },
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#060b16' } },
+    {
+      id: 'terrain',
+      type: 'raster',
+      source: 'terrain',
+      // 压暗贴合暗色大屏基调，同时保留高程色彩层次
+      paint: { 'raster-brightness-max': 0.62, 'raster-saturation': -0.3, 'raster-contrast': 0.1 },
+    },
+  ],
+}
+
 /** 可选底图列表（均免 token，切换通过 map.setStyle 即时生效） */
 export const BASEMAP_OPTIONS: BasemapOption[] = [
   {
@@ -46,29 +78,16 @@ export const BASEMAP_OPTIONS: BasemapOption[] = [
     styleUrl: ESRI_SATELLITE_STYLE,
   },
   {
-    id: 'carto-voyager',
-    name: '明亮街景',
-    styleUrl: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-  },
-  {
-    id: 'ofm-dark',
-    name: '暗夜深蓝',
-    styleUrl: 'https://tiles.openfreemap.org/styles/dark',
-  },
-  {
+    // 选用 OpenFreeMap 自家样式：其字体栈与 GLYPHS_URL 完全匹配（Carto 样式的
+    // Open Sans/Montserrat 复合栈在 OpenFreeMap 字体服务上 404，导致自带标注缺字）
     id: 'ofm-liberty',
-    name: '经典亮色',
+    name: '街景地图',
     styleUrl: 'https://tiles.openfreemap.org/styles/liberty',
   },
   {
-    id: 'carto-dark',
-    name: '墨黑极简',
-    styleUrl: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  },
-  {
-    id: 'carto-positron',
-    name: '银灰浅色',
-    styleUrl: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    id: 'esri-terrain',
+    name: '地形晕渲',
+    styleUrl: ESRI_TERRAIN_STYLE,
   },
 ]
 
@@ -77,21 +96,3 @@ export const DEFAULT_BASEMAP_ID = 'esri-satellite'
 
 /** 当前启用的底图（首项即默认项） */
 export const ACTIVE_BASEMAP: BasemapOption = BASEMAP_OPTIONS[0]
-
-/**
- * 预留：天地图矢量/影像底图。需在 https://console.tianditu.gov.cn 申请 tk 后，
- * 组装含 tk 查询参数的样式 URL 并加入 BASEMAP_OPTIONS 即可上线。
- */
-export const TIANDITU_PLACEHOLDER: BasemapOption & { tk: string } = {
-  id: 'tianditu',
-  name: '天地图（需 tk）',
-  styleUrl: '',
-  tk: '',
-}
-
-/** 预留：内网自托管瓦片。离线部署时把 styleUrl 指向本地样式文件后加入列表。 */
-export const SELF_HOSTED_PLACEHOLDER: BasemapOption = {
-  id: 'self-hosted',
-  name: '自托管瓦片（内网）',
-  styleUrl: '/basemaps/dark.json',
-}

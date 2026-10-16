@@ -8,20 +8,27 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write src/"
+    "format": "prettier --write src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check:size": "node scripts/check-budget.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9",
     "@deck.gl/core": "^9.4.0",
+    "@deck.gl/geo-layers": "^9.4.0",
     "@deck.gl/layers": "^9.4.0",
     "@deck.gl/mapbox": "^9.4.0",
-    "@turf/turf": "^7.4.0",
+    "@turf/distance": "^7.4.0",
+    "@turf/great-circle": "^7.4.0",
     "@types/geojson": "^7946.0.16",
     "deck.gl": "^9.4.0",
     "maplibre-gl": "^5.24.0",
     "vue": "^3.5.42"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/eslint-config-prettier": "^10.2.0",

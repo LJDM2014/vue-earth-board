@@ -3,7 +3,7 @@ import { HEATMAP_COLOR_RANGE } from '../../config/theme'
 import type { CityMetric } from '../../mock/cities'
 
 /** 创建城市热力图层：按热度指标聚合渲染，色带适配深色主题 */
-export function createHeatmapLayer(cities: CityMetric[]): HeatmapLayer<CityMetric> {
+export function createHeatmapLayer(cities: CityMetric[], opacity = 1): HeatmapLayer<CityMetric> {
   return new HeatmapLayer<CityMetric>({
     id: 'city-heatmap',
     data: cities,
@@ -13,6 +13,6 @@ export function createHeatmapLayer(cities: CityMetric[]): HeatmapLayer<CityMetri
     intensity: 1.2,
     threshold: 0.04,
     colorRange: HEATMAP_COLOR_RANGE,
-    opacity: 0.85,
+    opacity: 0.85 * opacity,
   })
 }

@@ -1,5 +1,6 @@
 import { ArcLayer, ScatterplotLayer } from '@deck.gl/layers'
-import { distance, greatCircle } from '@turf/turf'
+import { distance } from '@turf/distance'
+import { greatCircle } from '@turf/great-circle'
 import { DECK_COLORS } from '../../config/theme'
 import type { CityMetric } from '../../mock/cities'
 import type { FlowOD } from '../../mock/flows'
@@ -15,8 +16,8 @@ export interface FlowPath {
 
 /** 大圆采样点数量 */
 const PATH_SAMPLES = 96
-/** 弧线高度系数：deck 弧顶高度 = 0.5 × 大圆距离 × getHeight */
-const ARC_HEIGHT = 0.55
+/** 弧线高度系数：deck 弧顶高度 = 0.5 × 大圆距离 × getHeight（导出供轨迹层复用同一公式） */
+export const ARC_HEIGHT = 0.55
 
 /** 由 OD 数据构建大圆路径（turf 球面插值，与 deck 弧线轨迹一致） */
 export function buildFlowPaths(flows: FlowOD[], cityMap: Map<string, CityMetric>): FlowPath[] {
@@ -39,6 +40,7 @@ export function buildFlowPaths(flows: FlowOD[], cityMap: Map<string, CityMetric>
 export function createFlowArcLayer(
   paths: FlowPath[],
   volumeRange: [number, number],
+  opacity = 1,
 ): ArcLayer<FlowPath> {
   const [minV, maxV] = volumeRange
   const span = Math.max(maxV - minV, 1)
@@ -56,7 +58,7 @@ export function createFlowArcLayer(
     widthUnits: 'pixels',
     widthMinPixels: 1,
     pickable: false,
-    opacity: 0.9,
+    opacity: 0.9 * opacity,
   })
 }
 
@@ -107,7 +109,10 @@ export function buildCometPoints(paths: FlowPath[], progress: number): CometPoin
 }
 
 /** 创建飞线彗星层：带海拔的发光尾迹，跟随弧线飞行 */
-export function createFlowCometLayer(points: CometPoint[]): ScatterplotLayer<CometPoint> {
+export function createFlowCometLayer(
+  points: CometPoint[],
+  opacity = 1,
+): ScatterplotLayer<CometPoint> {
   return new ScatterplotLayer<CometPoint>({
     id: 'flow-comet',
     data: points,
@@ -119,6 +124,7 @@ export function createFlowCometLayer(points: CometPoint[]): ScatterplotLayer<Com
     radiusMaxPixels: 9,
     stroked: false,
     pickable: false,
+    opacity,
   })
 }
 

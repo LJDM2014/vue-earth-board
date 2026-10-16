@@ -1,81 +1,42 @@
 import type { Layer, PickingInfo } from '@deck.gl/core'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { computed, markRaw, onUnmounted, ref, shallowRef, watch, type Ref } from 'vue'
-import {
-  buildCometPoints,
-  buildFlowPaths,
-  createFlowArcLayer,
-  createFlowCometLayer,
-  type FlowPath,
-} from '../map/layers/flightArcs'
-import { createHeatmapLayer } from '../map/layers/heatmap'
-import { createRegionLayer, type ProvinceFeature } from '../map/layers/regionGeoJson'
-import { createCityCoreLayer, createCityPointLayer } from '../map/layers/scatterPoints'
-import type { CityMetric } from '../mock/cities'
-import type { FlowOD } from '../mock/flows'
-
-export interface DeckDataSources {
-  /** 城市指标数据（响应式） */
-  cities: Ref<CityMetric[]>
-  /** 飞线 OD 数据（响应式） */
-  flows: Ref<FlowOD[]>
-  /** 热力图显隐开关 */
-  showHeatmap: Ref<boolean>
-}
-
-/** 彗星飞行一圈的周期（秒） */
-const LOOP_SECONDS = 16
+import { computed, markRaw, onUnmounted, shallowRef, watch, type Ref } from 'vue'
+import { memoizeGroups, type AggregateResult, type LayerDescriptor, type LayerTooltip } from '../map/layers/registry'
 
 /**
- * deck.gl 图层 composable：所有数据图层通过 MapboxOverlay 叠加在同一张
- * MapLibre 地图上，2D/3D 投影切换时无需重建图层。
+ * deck.gl 图层 composable：仅依赖图层注册表（M2.1）聚合渲染。
+ * 图层的增删/显隐/数据映射全部由 LayerDescriptor 声明，本主流程不再感知具体图层；
+ * M4.1 起每组以独立 computed memo 化——静态层实例跨帧复用，仅动画组随帧重建，
+ * 数据/开关/hover/progress 变化时经 setProps 增量更新。
  */
-export function useDeckOverlay(mapReady: Ref<MapLibreMap | null>, sources: DeckDataSources) {
-  const { cities, flows, showHeatmap } = sources
-
-  /** deck overlay 实例：同样 shallowRef + markRaw，避免 Proxy 破坏 WebGL 状态 */
+export function useDeckOverlay(mapReady: Ref<MapLibreMap | null>, descriptors: LayerDescriptor[]) {
+  /** deck overlay 实例：shallowRef + markRaw，避免 Proxy 破坏 WebGL 状态 */
   const overlay = shallowRef<MapboxOverlay | null>(null)
-  /** 省界 hover 状态：驱动 GeoJsonLayer 高亮 */
-  const hoveredProvince = ref<string | null>(null)
-  /** 全局飞行进度（0→1 循环），驱动飞线彗星动画 */
-  const progress = ref(0)
-  let rafId = 0
-  let lastTs = 0
 
-  const cityMap = computed(() => new Map(cities.value.map((c) => [c.name, c])))
-  const flowPaths = computed<FlowPath[]>(() => buildFlowPaths(flows.value, cityMap.value))
-  const volumeRange = computed<[number, number]>(() => {
-    const vs = flows.value.map((f) => f.volume)
-    return vs.length ? [Math.min(...vs), Math.max(...vs)] : [0, 1]
-  })
+  /** 每组独立 memo（M4.1）：组内 deps 变化只重建本组，progress 不再波及静态层 */
+  const groups = memoizeGroups(descriptors)
 
-  /** 聚合全部图层（纯函数生成，数据/hover/开关变化时自动重算） */
-  const layers = computed<Layer[]>(() => {
-    const list: Layer[] = [
-      createRegionLayer({
-        hoveredName: hoveredProvince.value,
-        onHover: (name) => (hoveredProvince.value = name),
-      }),
-    ]
-    if (showHeatmap.value) {
-      list.push(createHeatmapLayer(cities.value))
+  /** 聚合出口：可见组引用拼接（O(n)，组内实例已由各自 computed 缓存） */
+  const aggregated = computed<AggregateResult>(() => {
+    const layers: Layer[] = []
+    const tooltips = new Map<string, LayerTooltip>()
+    for (const g of groups) {
+      if (!g.visible.value) continue
+      for (const layer of g.layers.value) {
+        layers.push(layer)
+        if (g.desc.tooltip) tooltips.set(layer.id, g.desc.tooltip)
+      }
     }
-    list.push(createCityPointLayer(cities.value), createCityCoreLayer(cities.value))
-    const paths = flowPaths.value
-    if (paths.length > 0) {
-      list.push(createFlowArcLayer(paths, volumeRange.value))
-      list.push(createFlowCometLayer(buildCometPoints(paths, progress.value)))
-    }
-    return list
+    return { layers, tooltips }
   })
 
   /** 数据图层统一出口：setProps 增量更新，无需重建 overlay */
   function syncLayers() {
-    overlay.value?.setProps({ layers: layers.value })
+    overlay.value?.setProps({ layers: aggregated.value.layers })
   }
 
-  watch(layers, syncLayers)
+  watch(aggregated, syncLayers)
 
   // 等待地图样式完全就绪（'load' 事件）后才挂载 overlay：
   // MapboxOverlay 初始化会读取 map.getProjection()，而 maplibre v5 在样式
@@ -83,37 +44,23 @@ export function useDeckOverlay(mapReady: Ref<MapLibreMap | null>, sources: DeckD
   watch(mapReady, (map) => {
     if (!map || overlay.value) return
     const instance = markRaw(
-      new MapboxOverlay({ interleaved: false, layers: layers.value, getTooltip }),
+      new MapboxOverlay({
+        interleaved: false,
+        layers: aggregated.value.layers,
+        getTooltip,
+      }),
     )
     map.addControl(instance)
     overlay.value = instance
   })
 
-  // 飞线动画：requestAnimationFrame 驱动全局进度，经响应式管线刷新图层
-  function tick(ts: number) {
-    if (lastTs !== 0) {
-      progress.value = (progress.value + (ts - lastTs) / 1000 / LOOP_SECONDS) % 1
-    }
-    lastTs = ts
-    rafId = requestAnimationFrame(tick)
-  }
-  rafId = requestAnimationFrame(tick)
-
-  /** 悬浮提示：省份名 / 城市热度 */
-  function getTooltip(info: PickingInfo): string | null {
-    if (info.layer?.id === 'city-points') {
-      const city = info.object as CityMetric
-      return `<b>${city.name}</b><br/>热度指数 ${city.value}`
-    }
-    if (info.layer?.id === 'china-provinces') {
-      const province = info.object as ProvinceFeature
-      return `<b>${province.properties.name}</b>`
-    }
-    return null
+  /** 悬浮提示：按命中图层 id 在注册表 tooltip 映射中解析（string 纯文本 / {html} 富化卡片） */
+  function getTooltip(info: PickingInfo): string | { html: string } | null {
+    const resolve = aggregated.value.tooltips.get(info.layer?.id ?? '')
+    return resolve ? resolve(info) : null
   }
 
   onUnmounted(() => {
-    cancelAnimationFrame(rafId)
     // finalize 内部调用 map.removeControl 并触发 deck 清理，且重复调用安全
     //（map.remove() 时 maplibre 也会遍历触发 control.onRemove）
     overlay.value?.finalize()

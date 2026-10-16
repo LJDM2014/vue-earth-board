@@ -27,17 +27,35 @@
         />
       </svg>
     </button>
+    <button
+      type="button"
+      class="ctl-btn"
+      :class="{ active: autoRotate }"
+      :aria-pressed="autoRotate"
+      :aria-label="autoRotate ? '停止自转' : '开启自转'"
+      @click="emit('toggle-rotate', !autoRotate)"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z"
+          fill="currentColor"
+        />
+      </svg>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { THEME } from '../config/theme'
 
+defineProps<{ autoRotate: boolean }>()
+
 const emit = defineEmits<{
   'zoom-in': []
   'zoom-out': []
   'reset-north': []
   'reset-view': []
+  'toggle-rotate': [enabled: boolean]
 }>()
 </script>
 
@@ -75,6 +93,14 @@ const emit = defineEmits<{
 .ctl-btn:hover {
   color: v-bind('THEME.cyan');
   background: rgba(0, 229, 255, 0.12);
+}
+
+.ctl-btn.active {
+  color: v-bind('THEME.cyan');
+}
+
+.ctl-btn.active svg {
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
 }
 
 .ctl-btn:active {
