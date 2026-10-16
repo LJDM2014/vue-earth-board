@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DECK_COLORS } from '../../../config/theme'
 import type { CityMetric } from '../../../mock/cities'
 import type { FlowOD } from '../../../mock/flows'
 import {
@@ -10,8 +11,20 @@ import {
 } from '../flightArcs'
 
 /** 北京/上海近似坐标（真实经纬度，验证 turf 球面计算） */
-const BEIJING: CityMetric = { name: '北京', province: '北京市', value: 100, lnglat: [116.4, 39.9] }
-const SHANGHAI: CityMetric = { name: '上海', province: '上海市', value: 90, lnglat: [121.47, 31.23] }
+const BEIJING: CityMetric = {
+  name: '北京',
+  province: '北京市',
+  value: 100,
+  lnglat: [116.4, 39.9],
+  indicators: { heat: 100, passenger: 400, economy: 300 },
+}
+const SHANGHAI: CityMetric = {
+  name: '上海',
+  province: '上海市',
+  value: 90,
+  lnglat: [121.47, 31.23],
+  indicators: { heat: 90, passenger: 380, economy: 320 },
+}
 
 function cityMap(): Map<string, CityMetric> {
   return new Map([
@@ -28,7 +41,7 @@ describe('ARC_HEIGHT 弧高系数', () => {
 
 describe('buildFlowPaths 大圆路径构建', () => {
   it('首尾采样点与 OD 起讫一致，距离为球面米', () => {
-    const flows: FlowOD[] = [{ from: '北京', to: '上海', volume: 100 }]
+    const flows: FlowOD[] = [{ from: '北京', to: '上海', volume: 100, category: 'passenger' }]
     const paths = buildFlowPaths(flows, cityMap())
     expect(paths).toHaveLength(1)
     const [p] = paths
@@ -43,7 +56,7 @@ describe('buildFlowPaths 大圆路径构建', () => {
   })
 
   it('采样点数量与 PATH_SAMPLES 对齐（96 采样 + 终点）', () => {
-    const flows: FlowOD[] = [{ from: '北京', to: '上海', volume: 100 }]
+    const flows: FlowOD[] = [{ from: '北京', to: '上海', volume: 100, category: 'passenger' }]
     const [p] = buildFlowPaths(flows, cityMap())
     expect(p.points.length).toBeGreaterThanOrEqual(96)
     expect(p.points.length).toBeLessThanOrEqual(97)
@@ -51,9 +64,9 @@ describe('buildFlowPaths 大圆路径构建', () => {
 
   it('缺起讫城市的 OD 被跳过（不抛错）', () => {
     const flows: FlowOD[] = [
-      { from: '北京', to: '上海', volume: 100 },
-      { from: '北京', to: '不存在的城市', volume: 50 },
-      { from: '未知城市', to: '上海', volume: 50 },
+      { from: '北京', to: '上海', volume: 100, category: 'passenger' },
+      { from: '北京', to: '不存在的城市', volume: 50, category: 'cargo' },
+      { from: '未知城市', to: '上海', volume: 50, category: 'cargo' },
     ]
     const paths = buildFlowPaths(flows, cityMap())
     expect(paths).toHaveLength(1)
@@ -66,10 +79,10 @@ describe('buildFlowPaths 大圆路径构建', () => {
 })
 
 /** 合成路径（避开 turf，专注彗星几何逻辑） */
-function syntheticPath(index: number): FlowPath {
+function syntheticPath(index: number, category: FlowOD['category'] = 'passenger'): FlowPath {
   const points: [number, number][] = []
   for (let j = 0; j < 11; j++) points.push([index * 10 + j, index * 5 + j])
-  return { flow: { from: 'a', to: 'b', volume: index * 10 }, points, meters: 1000 }
+  return { flow: { from: 'a', to: 'b', volume: index * 10, category }, points, meters: 1000 }
 }
 
 describe('buildCometPoints 彗星尾迹', () => {
@@ -121,5 +134,43 @@ describe('createFlowArcLayer 静态弧层', () => {
     expect(layer.id).toBe('flow-arcs')
     expect(layer.props.opacity).toBeCloseTo(0.45, 10)
     expect(layer.props.greatCircle).toBe(true)
+  })
+})
+
+/** 直调 accessor（accessor 上下文参数在本测试中无关，可省略） */
+function sourceColorOf(layer: ReturnType<typeof createFlowArcLayer>, path: FlowPath): number[] {
+  const acc = layer.props.getSourceColor as unknown as (d: FlowPath) => number[]
+  return acc(path)
+}
+
+describe('弧线联动高亮（M6.3）', () => {
+  // 第二条改 key 为 c→d，避免与第一条 a→b 同键命中
+  const paths = [
+    syntheticPath(0),
+    { ...syntheticPath(1, 'cargo'), flow: { from: 'c', to: 'd', volume: 20, category: 'cargo' as const } },
+  ]
+
+  it('无高亮时保持类别原色', () => {
+    const layer = createFlowArcLayer(paths, [50, 90], 1, null)
+    expect(sourceColorOf(layer, paths[0])).toEqual([0, 229, 255, 110])
+    expect(sourceColorOf(layer, paths[1])).toEqual([255, 196, 77, 110])
+  })
+
+  it('命中航线提亮加粗，未命中压暗', () => {
+    const layer = createFlowArcLayer(paths, [50, 90], 1, 'a→b')
+    // 客运高亮随主题主色（M8.2）：取 DECK_COLORS.regionHoverLine
+    expect(sourceColorOf(layer, paths[0])).toEqual([...DECK_COLORS.regionHoverLine])
+    // 未命中：压暗为 DIM_ALPHA
+    expect(sourceColorOf(layer, paths[1])).toEqual([255, 196, 77, 36])
+    const width = layer.props.getWidth as (d: FlowPath) => number
+    expect(width(paths[0])).toBe(2.3) // 命中：<P50 细线 1.2 + 1.1
+    expect(width(paths[1])).toBe(1.2)
+  })
+
+  it('彗星尾迹：命中保持亮度，未命中压暗至 30%', () => {
+    const lit = buildCometPoints([paths[0]], 0.5, 'a→b')
+    expect(lit[0].color[3]).toBe(255)
+    const dim = buildCometPoints([paths[0]], 0.5, '其他→航线')
+    expect(dim[0].color[3]).toBe(Math.round(255 * 0.3))
   })
 })

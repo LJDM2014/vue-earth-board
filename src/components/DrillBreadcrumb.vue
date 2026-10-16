@@ -8,8 +8,6 @@
 </template>
 
 <script setup lang="ts">
-import { THEME } from '../config/theme'
-
 defineProps<{
   /** 当前下钻省（null = 全国视角，组件不渲染） */
   province: { name: string; adcode: number } | null
@@ -25,10 +23,10 @@ const emit = defineEmits<{ back: [] }>()
   gap: 10px;
   padding: 8px 18px;
   border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .crumb-link {
@@ -37,29 +35,29 @@ const emit = defineEmits<{ back: [] }>()
   padding: 2px 4px;
   font-size: 14px;
   letter-spacing: 1px;
-  color: v-bind('THEME.cyan');
+  color: var(--xb-cyan);
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .crumb-link:hover {
-  color: v-bind('THEME.text');
-  text-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  color: var(--xb-text);
+  text-shadow: 0 0 8px rgb(var(--xb-cyan-rgb) / 0.6);
 }
 
 .crumb-sep {
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
 }
 
 .crumb-current {
   font-size: 14px;
   letter-spacing: 1px;
-  color: v-bind('THEME.text');
+  color: var(--xb-text);
 }
 
 .crumb-hint {
   font-size: 12px;
   letter-spacing: 1px;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
 }
 </style>

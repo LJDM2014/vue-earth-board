@@ -1,5 +1,6 @@
 import { computed, ref, type Ref } from 'vue'
-import type { CityMetric } from '../../mock/cities'
+import { METRIC_TINT, THEME, hexToRgba } from '../../config/theme'
+import { METRIC_DEFS, type CityMetric, type MetricKey } from '../../mock/cities'
 import type { FlowOD } from '../../mock/flows'
 import type { CityBoundaryFeature } from '../../services/boundaryService'
 import {
@@ -12,7 +13,7 @@ import {
 import { createDrillLayer } from './drillBoundary'
 import { createHeatmapLayer } from './heatmap'
 import { createCityColumnLayer } from './metricColumns'
-import { valueRange } from './metricScale'
+import { flowWidthTiers, valueRange, type FlowWidthTiers } from './metricScale'
 import { createRegionLayer, type ProvinceFeature } from './regionGeoJson'
 import type { LayerDescriptor } from './registry'
 import { createCityPointLayer, createCityCoreLayer } from './scatterPoints'
@@ -31,8 +32,10 @@ export const LOOP_SECONDS = 16
 export const HISTORY_COUNT = 12
 
 export interface BoardLayerDeps {
-  /** 城市指标数据（响应式，时间轴切换时更新） */
+  /** 城市指标数据（响应式，时间轴切换时更新；value 为激活指标快照） */
   cities: Ref<CityMetric[]>
+  /** 当前激活指标（M5.2）：驱动 tooltip 标签与单位 */
+  activeMetric: Ref<MetricKey>
   /** 飞线 OD 数据（响应式） */
   flows: Ref<FlowOD[]>
   /** 全局循环进度 0→1（useLoopProgress 产出） */
@@ -53,6 +56,8 @@ export interface BoardLayerDeps {
   opacity: Ref<Record<LayerOpacityKey, number>>
   /** 联动高亮城市名：面板 hover → 地图高亮（M3.3） */
   hoverCityName: Ref<string | null>
+  /** 联动高亮航线键 `起点→终点`：航线面板 hover → 弧线高亮（M6.3） */
+  hoverFlow: Ref<string | null>
   /** 城市近 N 期指标历史：tooltip sparkline（M3.4） */
   cityHistory: Ref<Map<string, number[]>>
   /** 点击省份：M2.5 下钻入口（App.vue 接管） */
@@ -66,10 +71,30 @@ export interface BoardLayerDeps {
 /** tooltip 内联样式前缀（deck tooltip 以 innerHTML 渲染，无法复用 scoped 样式） */
 const TT_FONT = 'font:12px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
 
-/** 生成 sparkline SVG（近 N 期指标折线，纯内联样式，不引图表库） */
-function sparkline(values: number[]): string {
-  const w = 136
-  const h = 30
+/** 毛玻璃卡片外壳（M6.4）：blur + 深色半透明底 + 发光描边；函数化随主题实时取色（M8.2） */
+const ttShell = () =>
+  `backdrop-filter:blur(8px);background:rgb(${THEME.panelChannels} / 0.82);border:1px solid ${hexToRgba(THEME.cyan, 0.38)};` +
+  `border-radius:8px;box-shadow:0 0 18px ${hexToRgba(THEME.cyan, 0.18)},inset 0 0 16px ${hexToRgba(THEME.cyan, 0.05)};` +
+  'padding:10px 14px 9px 16px;position:relative;overflow:hidden;min-width:200px;'
+
+/** 左侧指标色条（按激活指标着色） */
+const ttBar = (color: string) =>
+  `position:absolute;left:0;top:0;bottom:0;width:3px;background:${color};box-shadow:0 0 8px ${color};`
+
+/** 环比箭头片段（M6.4：近 N 期倒数第二期 vs 当期，波动 <0.05% 不展示） */
+function trendBadge(history: number[], current: number): string {
+  if (history.length < 2) return ''
+  const prev = history[history.length - 2]
+  if (!(prev > 0)) return ''
+  const pct = ((current - prev) / prev) * 100
+  if (Math.abs(pct) < 0.05) return ''
+  const up = pct > 0
+  const color = up ? '#6ef2c8' : '#ff9c5b'
+  return `<span style="${TT_FONT}font-size:11px;color:${color};margin-left:8px;">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span>`
+}
+
+/** 生成 sparkline SVG（近 N 期指标折线 + 渐变面积，纯内联样式，不引图表库） */
+function sparkline(values: number[], w = 160, h = 36, color = THEME.cyan): string {
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = Math.max(max - min, 1)
@@ -80,8 +105,13 @@ function sparkline(values: number[]): string {
   const ly = py(values[values.length - 1]).toFixed(1)
   return (
     `<svg width="${w}" height="${h}" style="display:block" aria-hidden="true">` +
-    `<polyline points="${pts}" fill="none" stroke="#00e5ff" stroke-width="1.6"` +
-    ` stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>` +
+    `<defs><linearGradient id="tt-grad" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="${color}" stop-opacity="0.32"/>` +
+    `<stop offset="1" stop-color="${color}" stop-opacity="0"/>` +
+    `</linearGradient></defs>` +
+    `<polygon points="0,${h - 1} ${pts} ${w},${h - 1}" fill="url(#tt-grad)"/>` +
+    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6"` +
+    ` stroke-linejoin="round" stroke-linecap="round" opacity="0.95"/>` +
     `<circle cx="${lx}" cy="${ly}" r="2.6" fill="#e4fdff"/></svg>`
   )
 }
@@ -94,6 +124,7 @@ function sparkline(values: number[]): string {
 export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] {
   const {
     cities,
+    activeMetric,
     flows,
     progress,
     showHeatmap,
@@ -104,6 +135,7 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
     showRegion,
     opacity,
     hoverCityName,
+    hoverFlow,
     cityHistory,
     drillFeatures,
   } = deps
@@ -136,8 +168,12 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
   const cityMap = computed(() => new Map(cities.value.map((c) => [c.name, c])))
   const flowPaths = computed<FlowPath[]>(() => buildFlowPaths(flows.value, cityMap.value))
   const volumeRange = computed<[number, number]>(() => valueRange(flows.value.map((f) => f.volume)))
+  /** 弧线宽度分位档（M5.3：P50/P90 三档映射） */
+  const widthTiers = computed<FlowWidthTiers>(() => flowWidthTiers(flows.value.map((f) => f.volume)))
   const trips = computed(() => buildTrips(flowPaths.value, LOOP_SECONDS))
   const currentTime = computed(() => progress.value * LOOP_SECONDS)
+  /** 激活指标元信息（tooltip 标签与单位） */
+  const metricDef = computed(() => METRIC_DEFS[activeMetric.value])
   /** 联动高亮城市在数据中的下标（-1 = 无） */
   const hoverIndex = computed(() => {
     const name = hoverCityName.value
@@ -156,19 +192,45 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
     return agg
   })
 
-  /** 城市悬浮卡片：名称 + 指标 + 近 12 期 sparkline（M3.4，{ html } 才会按 HTML 渲染） */
+  /**
+   * 城市悬浮卡片（M6.4 毛玻璃精修）：指标色条 + 城市名/省份 → 主指标大数字 + 环比 →
+   * 放大 sparkline（渐变面积）→ 三指标微缩行（{ html } 才会按 HTML 渲染）
+   */
   const cityTooltip = (info: { object?: unknown }): { html: string } | null => {
     const city = info.object as CityMetric | undefined
     if (!city) return null
     const history = cityHistory.value.get(city.name) ?? []
+    const def = metricDef.value
+    const tint = METRIC_TINT[activeMetric.value]
+    const unit = def.unit
+      ? `<span style="${TT_FONT}font-size:10px;color:${THEME.cyanSoft};font-weight:400;"> ${def.unit}</span>`
+      : ''
+    const miniRow = (['heat', 'passenger', 'economy'] as MetricKey[])
+      .map(
+        (m) =>
+          `<span style="display:inline-flex;align-items:center;gap:3px;">` +
+          `<i style="width:5px;height:5px;border-radius:50%;background:${METRIC_TINT[m]};display:inline-block;box-shadow:0 0 4px ${METRIC_TINT[m]};"></i>` +
+          `${METRIC_DEFS[m].short} <b style="font-weight:600;color:${THEME.cyanSoft};font-variant-numeric:tabular-nums;">${city.indicators[m].toLocaleString()}</b></span>`,
+      )
+      .join('<span style="display:inline-block;width:7px;"></span>')
     return {
       html:
-        `<div style="${TT_FONT}color:#d7f5ff;font-weight:600;letter-spacing:1px;">${city.name}` +
-        `<span style="color:#00e5ff;margin-left:10px;font-variant-numeric:tabular-nums;">${city.value}</span></div>` +
+        `<div style="${ttShell()}">` +
+        `<i style="${ttBar(tint)}"></i>` +
+        `<div style="${TT_FONT}display:flex;align-items:baseline;gap:7px;">` +
+        `<span style="font-size:15px;font-weight:600;color:${THEME.text};letter-spacing:1px;">${city.name}</span>` +
+        `<span style="font-size:11px;color:${THEME.textDim};">${city.province}</span></div>` +
+        `<div style="${TT_FONT}display:flex;align-items:baseline;margin-top:3px;">` +
+        `<span style="font-size:11px;color:${THEME.textDim};">${def.short}</span>` +
+        `<span style="font-size:20px;font-weight:700;color:${tint};text-shadow:0 0 10px ${tint}66;font-variant-numeric:tabular-nums;margin-left:6px;">${city.value.toLocaleString()}</span>` +
+        `${unit}${trendBadge(history, city.value)}</div>` +
         (history.length >= 2
-          ? `<div style="${TT_FONT}color:#5f7d93;margin-top:2px;">近 ${history.length} 期热度</div>` +
-            `<div style="margin-top:2px;">${sparkline(history)}</div>`
-          : ''),
+          ? `<div style="margin-top:6px;">${sparkline(history, 160, 36, tint)}</div>` +
+            `<div style="${TT_FONT}font-size:10px;color:${THEME.textDim};margin-top:2px;">近 ${history.length} 期${def.short}</div>`
+          : '') +
+        `<div style="${TT_FONT}display:flex;align-items:center;gap:5px;margin-top:7px;padding-top:6px;` +
+        `border-top:1px solid ${hexToRgba(THEME.cyan, 0.14)};font-size:10.5px;color:${THEME.textDim};">${miniRow}</div>` +
+        `</div>`,
     }
   }
 
@@ -179,9 +241,9 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
     const agg = provinceAgg.value.get(name)
     return {
       html:
-        `<div style="${TT_FONT}color:#d7f5ff;font-weight:600;letter-spacing:1px;">${name}` +
+        `<div style="${TT_FONT}color:${THEME.text};font-weight:600;letter-spacing:1px;">${name}` +
         (agg
-          ? `<span style="color:#7be8ff;margin-left:10px;">均度 ${Math.round(agg.total / agg.count)}</span>`
+          ? `<span style="color:${THEME.cyanSoft};margin-left:10px;">均度 ${Math.round(agg.total / agg.count)}</span>`
           : '') +
         `</div>`,
     }
@@ -268,7 +330,9 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
       id: 'arcs',
       order: 36,
       visible: () => showArcs.value && flowPaths.value.length > 0,
-      build: () => [createFlowArcLayer(flowPaths.value, volumeRange.value, opacity.value.arcs)],
+      build: () => [
+        createFlowArcLayer(flowPaths.value, widthTiers.value, opacity.value.arcs, hoverFlow.value),
+      ],
     },
     {
       // 彗星尾迹单独成组（M4.1）：唯一随 progress 每帧重建的飞线组，
@@ -277,7 +341,10 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
       order: 37,
       visible: () => showArcs.value && flowPaths.value.length > 0,
       build: () => [
-        createFlowCometLayer(buildCometPoints(flowPaths.value, progress.value), opacity.value.arcs),
+        createFlowCometLayer(
+          buildCometPoints(flowPaths.value, progress.value, hoverFlow.value),
+          opacity.value.arcs,
+        ),
       ],
     },
   ]

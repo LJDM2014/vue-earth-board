@@ -33,3 +33,105 @@ export function reportMonitorEvent(event: MonitorEvent): void {
     }
   }
 }
+
+/** HttpReporter 上报报文中的单条事件（附时间戳） */
+export interface MonitorEventPayload {
+  type: string
+  detail?: string
+  source?: string
+  ts: number
+}
+
+/** HttpReporter 整包报文：会话标识 + 页面停留时长 + 事件批次 */
+export interface MonitorReportBody {
+  sessionId: string
+  dwellMs: number
+  events: MonitorEventPayload[]
+}
+
+export interface HttpReporterOptions {
+  /** 缓冲上限（满即 flush），默认 10 */
+  maxBatch?: number
+  /** 定时 flush 间隔（毫秒），默认 5000 */
+  flushIntervalMs?: number
+}
+
+/** 会话标识：每次页面加载生成一次，后端据此聚合同一会话的事件 */
+function makeSessionId(): string {
+  return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/**
+ * 批量缓冲上报器（M9.2）：监控事件先入缓冲，满批或定时统一上报。
+ * sendBeacon 优先（页面关闭也能送达），返回 false / 抛错回落 fetch keepalive；
+ * 上报失败一律静默——上报通道自身不产生监控事件，避免风暴。
+ */
+export class HttpReporter {
+  private readonly url: string
+  private readonly maxBatch: number
+  private readonly flushIntervalMs: number
+  private readonly sessionId = makeSessionId()
+  private readonly startedAt = Date.now()
+  private buffer: MonitorEventPayload[] = []
+  private timer: ReturnType<typeof setTimeout> | undefined
+
+  constructor(url: string, options: HttpReporterOptions = {}) {
+    this.url = url
+    this.maxBatch = options.maxBatch ?? 10
+    this.flushIntervalMs = options.flushIntervalMs ?? 5000
+  }
+
+  /** MonitorReporter 入口（箭头属性：可直接作为回调传递，无需 bind） */
+  readonly report = (event: MonitorEvent): void => {
+    this.buffer.push({
+      type: event.type,
+      ...('detail' in event && event.detail !== undefined ? { detail: event.detail } : {}),
+      ...('source' in event ? { source: event.source } : {}),
+      ts: Date.now(),
+    })
+    if (this.buffer.length >= this.maxBatch) {
+      this.flush()
+      return
+    }
+    if (this.timer === undefined) {
+      this.timer = setTimeout(() => {
+        this.timer = undefined
+        this.flush()
+      }, this.flushIntervalMs)
+    }
+  }
+
+  /** 立即清空缓冲并上报；无缓冲时为空操作（也顺带清理定时器） */
+  flush(): void {
+    if (this.timer !== undefined) {
+      clearTimeout(this.timer)
+      this.timer = undefined
+    }
+    if (this.buffer.length === 0) return
+    const body: MonitorReportBody = {
+      sessionId: this.sessionId,
+      dwellMs: Date.now() - this.startedAt,
+      events: this.buffer,
+    }
+    this.buffer = []
+    const text = JSON.stringify(body)
+    // sendBeacon 优先（页面关闭也能送达）；返回 false / 抛错 / 环境缺失均回落 fetch keepalive
+    let sent = false
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      try {
+        sent = navigator.sendBeacon(this.url, new Blob([text], { type: 'application/json' }))
+      } catch {
+        sent = false
+      }
+    }
+    if (!sent) {
+      // keepalive 保证页面卸载后请求仍能发出；上报失败静默，不产生监控风暴
+      void fetch(this.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: text,
+        keepalive: true,
+      }).catch(() => {})
+    }
+  }
+}

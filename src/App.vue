@@ -1,8 +1,7 @@
 <template>
   <ScreenFit>
-    <div class="board">
-      <TitleBar />
-      <!-- 中央地图：MapLibre 实例挂载点 -->
+    <div class="board" :class="{ entered }">
+      <TitleBar data-enter style="--enter-order: 0" :data-source-label="dataSourceLabel" :is-degraded="isDegraded" />
       <div ref="mapContainer" class="map-container" />
       <DrillBreadcrumb class="crumb-pos" :province="drillProvince" @back="exitDrill" />
       <RegionNav
@@ -14,12 +13,15 @@
         @toggle-tour="tourActive ? stopTour() : startTour()"
       />
       <!-- 左侧面板栈：榜单 + 图层管理 -->
-      <div class="left-stack">
+      <div class="left-stack" data-enter style="--enter-order: 1">
         <TopCityPanel
-          :cities="cities"
+          :cities="activeCities"
+          :metric="activeMetric"
+          :history="cityHistory"
           :highlighted-city="highlightedCity"
           :highlight-province="highlightProvince"
           @hover-city="hoverCityName = $event"
+          @change-metric="activeMetric = $event"
         />
         <LayerPanel
           :mode="mode"
@@ -43,10 +45,19 @@
           @change-opacity="setOpacity"
         />
       </div>
-      <FlowStatPanel class="panel-pos panel-right" :flows="flows" />
-      <TimelinePlayer v-model="period" class="timeline-pos" :periods="periods" />
+      <FlowStatPanel
+        class="panel-pos panel-right"
+        data-enter
+        style="--enter-order: 2"
+        :flows="flows"
+        :prev-flows="prevFlows"
+        @hover-flow="hoverFlow = $event"
+      />
+      <TimelinePlayer v-model="period" class="timeline-pos" data-enter style="--enter-order: 3" :periods="periods" />
       <MapControls
         class="map-controls-pos"
+        data-enter
+        style="--enter-order: 3"
         :auto-rotate="autoRotate"
         @zoom-in="zoomIn()"
         @zoom-out="zoomOut()"
@@ -54,23 +65,25 @@
         @reset-view="resetView()"
         @toggle-rotate="setAutoRotate"
       />
-      <BasemapSwitch v-model="basemapId" class="basemap-pos" />
-      <ModeSwitch class="mode-switch-pos" :mode="mode" @change="onModeChange" />
+      <BasemapSwitch v-model="basemapId" class="basemap-pos" data-enter style="--enter-order: 3" />
+      <ModeSwitch class="mode-switch-pos" data-enter style="--enter-order: 3" :mode="mode" @change="onModeChange" />
+      <DebugHud :period="period" :source-kind="dataSourceKind" />
       <BootOverlay
         v-if="bootVisible"
         :progress="bootProgress"
         :status="bootStatus"
         :error="loadError"
-        @gone="bootVisible = false"
+        @gone="onBootGone"
       />
     </div>
   </ScreenFit>
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import BasemapSwitch from './components/BasemapSwitch.vue'
 import BootOverlay from './components/BootOverlay.vue'
+import DebugHud from './components/DebugHud.vue'
 import DrillBreadcrumb from './components/DrillBreadcrumb.vue'
 import MapControls from './components/MapControls.vue'
 import ModeSwitch from './components/ModeSwitch.vue'
@@ -81,98 +94,62 @@ import TitleBar from './components/TitleBar.vue'
 import FlowStatPanel from './panels/FlowStatPanel.vue'
 import LayerPanel from './panels/LayerPanel.vue'
 import TopCityPanel from './panels/TopCityPanel.vue'
-import {
-  CAMERA_PRESETS,
-  TOUR_PERIOD_EVERY,
-  TOUR_STEP_MS,
-  type CameraPreset,
-} from './config/cameras'
-import { BASEMAP_OPTIONS, DEFAULT_BASEMAP_ID } from './config/basemap'
-import { useDeckOverlay } from './composables/useDeckOverlay'
-import { useLoopProgress } from './composables/useLoopProgress'
-import { useMapLibre, type ScreenMode } from './composables/useMapLibre'
+import { BASEMAP_OPTIONS } from './config/basemap'
+import { CAMERA_PRESETS, type CameraPreset } from './config/cameras'
+import { boardConfig, initBoardConfig } from './config/runtime'
+import { useBoardData } from './composables/useBoardData'
 import { useCityLabels } from './composables/useCityLabels'
+import { useDeckOverlay } from './composables/useDeckOverlay'
+import { useLayerToggles } from './composables/useLayerToggles'
+import { useLoopProgress } from './composables/useLoopProgress'
 import { useMapAnnotations } from './composables/useMapAnnotations'
-import {
-  createBoardDescriptors,
-  HISTORY_COUNT,
-  LOOP_SECONDS,
-  type LayerOpacityKey,
-  type PointStyle,
-} from './map/layers/boardLayers'
-import type { ProvinceFeature } from './map/layers/regionGeoJson'
+import { useMapLibre, type ScreenMode } from './composables/useMapLibre'
+import { useProvinceDrill } from './composables/useProvinceDrill'
+import { useTourMode } from './composables/useTourMode'
+import { useWatchdog } from './composables/useWatchdog'
+import { createBoardDescriptors, LOOP_SECONDS } from './map/layers/boardLayers'
 import type { CityMetric } from './mock/cities'
-import type { FlowOD } from './mock/flows'
-import { geoBBox, loadCityBoundaries, type CityBoundaryFeature } from './services/boundaryService'
-import type { BoardDataSource, Period } from './services/dataSource'
-import { MockDataSource } from './services/mockDataSource'
-import { reportMonitorEvent } from './services/monitor'
+import { createDataSource } from './services/createDataSource'
+import type { BoardDataSource } from './services/dataSource'
 
-/** 大屏全局状态（不引入 pinia，经 props/emits 下发） */
-const mode = ref<ScreenMode>('3d')
-const showHeatmap = ref(false)
-/** 当前底图 id（BasemapSwitch 双向绑定） */
-const basemapId = ref(DEFAULT_BASEMAP_ID)
-/** 图层开关（M3.1 图层管理）：散点呈现 / 城市图层 / 标注 / 轨迹 / 飞线 / 省界 */
-const pointStyle = ref<PointStyle>('scatter')
-const showPoints = ref(true)
-const showLabels = ref(true)
-/** 地图注记（M5）：在卫星/地形等无注记瓦片上叠加中文地名，默认开启 */
-const showAnnotations = ref(true)
-const showTrips = ref(true)
-const showArcs = ref(true)
-const showRegion = ref(true)
-/** 图层透明度 0-1（M3.1 滑杆） */
-const layerOpacity = ref<Record<LayerOpacityKey, number>>({
-  city: 1,
-  heatmap: 1,
-  arcs: 1,
-  trips: 1,
-  region: 1,
-  labels: 1,
-  annotations: 1,
+// 数据源装配（M7.3/M9.4）：先加载运行配置，再按配置装配数据源；角标 mock=演示 / http=实时
+const dataSourceRef = shallowRef<BoardDataSource | null>(null)
+const isDegraded = ref(false)
+const dataSourceLabel = computed(() => {
+  const ds = dataSourceRef.value
+  return ds ? (ds.kind === 'mock' ? '演示数据' : '实时数据') : null
 })
+/** HUD（M9.1）消费的原始 kind：mock / http / null */
+const dataSourceKind = computed(() => dataSourceRef.value?.kind ?? null)
 
-/** 数据服务层（M2.7）：面板与图层只依赖 BoardDataSource 接口 */
-const dataSource: BoardDataSource = new MockDataSource()
-const periods = ref<Period[]>([])
-const period = ref<Period>('')
-const cities = ref<CityMetric[]>([])
-const flows = ref<FlowOD[]>([])
-/** 城市近 12 期指标历史：tooltip sparkline（M3.4） */
-const cityHistory = ref<Map<string, number[]>>(new Map())
+// ── 数据域（M7.5）：加载/缓存/推送订阅全部内聚在 useBoardData；
+// 轮询间隔走响应式运行配置（M9.4），配置加载后动态启停 ──
+const { periods, period, cities, flows, prevFlows, cityHistory, activeMetric, refreshCurrent } =
+  useBoardData(dataSourceRef, {
+    refreshIntervalMs: computed(() => boardConfig.value.refreshIntervalMs),
+  })
+const activeCities = computed<CityMetric[]>(() =>
+  cities.value.map((c) => ({ ...c, value: c.indicators[activeMetric.value] })),
+)
 
-/** 初始化周期列表并默认定位到中期（数据就绪后时间轴出现并触发首次加载） */
-async function initPeriods() {
-  periods.value = await dataSource.listPeriods()
-  period.value = periods.value[Math.floor(periods.value.length / 2)] ?? ''
-}
-void initPeriods()
+// ── 图层开关域（M7.6）：面板联动的开关与透明度状态 ──
+const {
+  mode, showHeatmap, basemapId, pointStyle, showPoints, showLabels,
+  showAnnotations, showTrips, showArcs, showRegion, layerOpacity, setOpacity,
+} = useLayerToggles()
 
-/** 周期切换：异步拉取该期数据 + 历史序列，驱动图层与面板同步刷新（失败上报监控 M4.6） */
-watch(period, async (p) => {
-  if (!p) return
-  try {
-    const [nextCities, nextFlows] = await Promise.all([
-      dataSource.getCities(p),
-      dataSource.getFlows(p),
-    ])
-    cities.value = nextCities
-    flows.value = nextFlows
-    const historyEntries = await Promise.all(
-      nextCities.map(async (c) => [c.name, await dataSource.getCityHistory(p, c.name, HISTORY_COUNT)] as const),
-    )
-    cityHistory.value = new Map(historyEntries)
-  } catch (err) {
-    reportMonitorEvent({ type: 'data-source-error', source: 'period-fetch', detail: String(err) })
-  }
-})
-
-/** 首屏引导（M3.5）：地图引擎 → 底图/数据 → 就绪淡出 */
+// ── 地图引擎、首屏引导（M3.5）与循环时间基准 ──
 const bootProgress = ref(8)
 const bootStatus = ref('初始化地图引擎…')
 const bootVisible = ref(true)
 let bootDone = false
+
+/** 入场编排（M8.3）：引导层退场后面板逐组升起 */
+const entered = ref(false)
+function onBootGone() {
+  bootVisible.value = false
+  entered.value = true
+}
 
 const mapContainer = ref<HTMLElement | null>(null)
 const {
@@ -191,29 +168,21 @@ const {
   flyToCamera,
 } = useMapLibre(mapContainer)
 
-watch(mapReady, (map) => {
-  if (!map || bootDone) return
-  bootProgress.value = Math.max(bootProgress.value, 55)
-  bootStatus.value = '加载业务数据…'
-})
-
-/** 全局循环进度：彗星尾迹与轨迹回放共用同一时间基准 */
 const progress = useLoopProgress(LOOP_SECONDS)
 
-/** 省份下钻状态（M2.5） */
-const drillProvince = ref<{ name: string; adcode: number } | null>(null)
-const drillFeatures = ref<CityBoundaryFeature[]>([])
-/** 下钻前的自转开关，返回全国时恢复 */
-let rotateBeforeDrill: boolean | null = null
-
-/** 面板联动状态（M3.3）：地图 hover 高亮城市 → 图层；点击回写 → 面板高亮 */
 const hoverCityName = ref<string | null>(null)
 const highlightedCity = ref<string | null>(null)
-const highlightProvince = ref<string | null>(null)
+const hoverFlow = ref<string | null>(null)
 
-/** 图层注册表（M2.1）：所有 deck 图层以描述符声明，overlay 仅按注册表聚合 */
+const { drillProvince, drillFeatures, highlightProvince, handleProvinceClick, exitDrill } =
+  useProvinceDrill({
+    mapInstance, autoRotate, setAutoRotate, resetView,
+    onEnter: () => { highlightedCity.value = null },
+  })
+
 const descriptors = createBoardDescriptors({
-  cities,
+  cities: activeCities,
+  activeMetric,
   flows,
   progress,
   showHeatmap,
@@ -224,6 +193,7 @@ const descriptors = createBoardDescriptors({
   showRegion,
   opacity: layerOpacity,
   hoverCityName,
+  hoverFlow,
   cityHistory,
   onProvinceClick: handleProvinceClick,
   onCityClick: handleCityClick,
@@ -231,7 +201,6 @@ const descriptors = createBoardDescriptors({
 })
 useDeckOverlay(mapReady, descriptors)
 
-/** 地图注记（M5）：矢量地名叠加层，先于城市标注注册使其垫在业务标注之下 */
 useMapAnnotations(
   mapReady,
   styleVersion,
@@ -239,64 +208,48 @@ useMapAnnotations(
   computed(() => layerOpacity.value.annotations),
 )
 
-/** 城市中文标注（M2.4）：maplibre 原生 symbol 层，deck TextLayer 在 globe 下不渲染 */
 useCityLabels(
   mapReady,
   styleVersion,
-  cities,
+  activeCities,
   showLabels,
   computed(() => layerOpacity.value.labels),
 )
 
-/** 图层透明度滑杆写入 */
-function setOpacity(key: LayerOpacityKey, value: number) {
-  layerOpacity.value = { ...layerOpacity.value, [key]: value }
-}
-
-/** 点击城市散点/柱：左侧 TOP 面板高亮该城市（M3.3） */
 function handleCityClick(city: CityMetric) {
   highlightedCity.value = city.name
   highlightProvince.value = null
 }
+const activePresetId = ref<string | null>(CAMERA_PRESETS[0].id)
 
-/** 点击省份：拉取市界 GeoJSON（内存缓存）→ 面包屑 + 市界描边 + 平滑飞行 */
-async function handleProvinceClick(feature: ProvinceFeature) {
-  const { name, adcode } = feature.properties
-  if (drillProvince.value?.adcode === adcode) return
-  try {
-    const collection = await loadCityBoundaries(adcode)
-    if (rotateBeforeDrill === null) rotateBeforeDrill = autoRotate.value
-    setAutoRotate(false)
-    drillProvince.value = { name, adcode }
-    drillFeatures.value = collection.features
-    highlightedCity.value = null
-    highlightProvince.value = name
-    mapInstance.value?.fitBounds(geoBBox(collection.features), {
-      padding: { top: 120, bottom: 150, left: 360, right: 360 },
-      maxZoom: 6.5,
-      duration: 1200,
-      essential: true,
+function flyToPreset(preset: CameraPreset) {
+  activePresetId.value = preset.id
+  flyToCamera(preset)
+}
+const { tourActive, tourLabel, startTour, stopTour } = useTourMode({
+  autoRotate, setAutoRotate, periods, period, drillProvince, exitDrill, flyToPreset,
+})
+
+// ── 无人值守看门狗（M9.3）：连续数据错误降级 / 回前台强刷 / 轮播被打断后自愈恢复 ──
+useWatchdog({ sourceRef: dataSourceRef, isDegraded, refreshCurrent, tourActive, startTour })
+
+// ── 运行配置装配（M9.4）：配置加载后应用指标/机位缺省，并按配置选数据源 ──
+void initBoardConfig()
+  .then((cfg) => {
+    activeMetric.value = cfg.defaultMetric
+    const preset = CAMERA_PRESETS.find((p) => p.id === cfg.defaultCameraId)
+    if (preset) activePresetId.value = preset.id
+    return createDataSource({
+      VITE_DATA_SOURCE: cfg.dataSource,
+      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
     })
-  } catch (err) {
-    reportMonitorEvent({ type: 'data-source-error', source: 'boundary', detail: String(err) })
-    console.warn(`[下钻] ${name} 市界数据加载失败（内网/离线时降级为全国视角）`, err)
-  }
-}
+  })
+  .then((handle) => {
+    dataSourceRef.value = handle.source
+    isDegraded.value = handle.degraded
+  })
 
-/** 面包屑返回全国：清除市界层、恢复自转并复位视角 */
-function exitDrill() {
-  drillProvince.value = null
-  drillFeatures.value = []
-  highlightProvince.value = null
-  if (rotateBeforeDrill !== null) {
-    setAutoRotate(rotateBeforeDrill)
-    rotateBeforeDrill = null
-  }
-  resetView()
-}
-
-/** 2D/3D 切换：同一地图实例上切换投影，保持相机中心不变；
- * 2D 平面模式下停用自转（M3.2），切回 3D 时恢复原状态 */
+// ── 2D/3D 切换：投影切换保持相机中心；2D 停自转（M3.2），切回 3D 恢复 ──
 let rotateBefore2d: boolean | null = null
 function onModeChange(next: ScreenMode) {
   mode.value = next
@@ -310,79 +263,17 @@ function onModeChange(next: ScreenMode) {
   }
 }
 
-/** 区域快捷导航（M3.2）：预设机位平滑飞行 */
-const activePresetId = ref<string | null>(CAMERA_PRESETS[0].id)
-
-function flyToPreset(preset: CameraPreset) {
-  activePresetId.value = preset.id
-  flyToCamera(preset)
-}
-
-/** 大屏轮播模式（M3.6）：定时轮播预设机位 + 数据片，ESC 退出 */
-const tourActive = ref(false)
-const tourIndex = ref(0)
-const tourLabel = computed(
-  () => CAMERA_PRESETS[tourIndex.value % CAMERA_PRESETS.length].label,
-)
-let tourTimer: number | undefined
-let rotateBeforeTour: boolean | null = null
-
-function startTour() {
-  if (drillProvince.value) exitDrill()
-  rotateBeforeTour = autoRotate.value
-  setAutoRotate(false)
-  tourIndex.value = 0
-  tourActive.value = true
-  flyToPreset(CAMERA_PRESETS[0])
-  tourTimer = window.setInterval(stepTour, TOUR_STEP_MS)
-}
-
-function stepTour() {
-  tourIndex.value += 1
-  const preset = CAMERA_PRESETS[tourIndex.value % CAMERA_PRESETS.length]
-  flyToPreset(preset)
-  // 每隔 N 个机位推进一期数据切片，形成「机位 + 数据」联合巡览
-  if (tourIndex.value % TOUR_PERIOD_EVERY === 0) advancePeriod()
-}
-
-function advancePeriod() {
-  const list = periods.value
-  if (list.length === 0) return
-  const idx = list.indexOf(period.value)
-  period.value = list[(idx + 1) % list.length] ?? list[0]
-}
-
-function stopTour() {
-  window.clearInterval(tourTimer)
-  tourTimer = undefined
-  tourActive.value = false
-  if (rotateBeforeTour !== null) {
-    setAutoRotate(rotateBeforeTour)
-    rotateBeforeTour = null
-  }
-}
-
-function onTourKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') stopTour()
-}
-
-watch(tourActive, (on) => {
-  if (on) window.addEventListener('keydown', onTourKeydown)
-  else window.removeEventListener('keydown', onTourKeydown)
-})
-
-onUnmounted(() => {
-  window.clearInterval(tourTimer)
-  window.removeEventListener('keydown', onTourKeydown)
-})
-
-/** 底图切换：id 变化后按配置应用新样式（样式重载后投影由 useMapLibre 自动恢复） */
 watch(basemapId, (id) => {
   const option = BASEMAP_OPTIONS.find((b) => b.id === id)
   if (option) setBasemap(option)
 })
 
-/** 首次数据就绪：走满引导进度并安排淡出 */
+watch(mapReady, (map) => {
+  if (!map || bootDone) return
+  bootProgress.value = Math.max(bootProgress.value, 55)
+  bootStatus.value = '加载业务数据…'
+})
+
 watch(cityHistory, (map) => {
   if (bootDone || map.size === 0) return
   bootDone = true
@@ -390,82 +281,3 @@ watch(cityHistory, (map) => {
   bootStatus.value = '就绪'
 })
 </script>
-
-<style scoped>
-.board {
-  position: absolute;
-  inset: 0;
-}
-
-.map-container {
-  position: absolute;
-  inset: 0;
-}
-
-.panel-pos {
-  position: absolute;
-  top: 108px;
-  z-index: 10;
-}
-
-.panel-right {
-  right: 28px;
-}
-
-.left-stack {
-  position: absolute;
-  top: 108px;
-  left: 28px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 360px;
-}
-
-.crumb-pos {
-  position: absolute;
-  top: 96px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-
-.region-nav-pos {
-  position: absolute;
-  top: 134px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-
-.timeline-pos {
-  position: absolute;
-  bottom: 88px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-
-.mode-switch-pos {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-
-.basemap-pos {
-  position: absolute;
-  left: 28px;
-  bottom: 30px;
-  z-index: 10;
-}
-
-.map-controls-pos {
-  position: absolute;
-  right: 28px;
-  bottom: 30px;
-  z-index: 10;
-}
-</style>

@@ -6,7 +6,11 @@ import type { FlowPath } from '../flightArcs'
 function syntheticPath(volume: number): FlowPath {
   const points: [number, number][] = []
   for (let j = 0; j < 11; j++) points.push([100 + j, 30 + j])
-  return { flow: { from: 'a', to: 'b', volume }, points, meters: 1000 }
+  return {
+    flow: { from: 'a', to: 'b', volume, category: 'passenger' },
+    points,
+    meters: 1000,
+  }
 }
 
 describe('buildTrips 轨迹样本构建', () => {

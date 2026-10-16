@@ -46,8 +46,6 @@
 </template>
 
 <script setup lang="ts">
-import { THEME } from '../config/theme'
-
 defineProps<{ autoRotate: boolean }>()
 
 const emit = defineEmits<{
@@ -66,10 +64,10 @@ const emit = defineEmits<{
   gap: 2px;
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .ctl-btn {
@@ -80,7 +78,7 @@ const emit = defineEmits<{
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   cursor: pointer;
   transition: all 0.25s ease;
 }
@@ -91,19 +89,19 @@ const emit = defineEmits<{
 }
 
 .ctl-btn:hover {
-  color: v-bind('THEME.cyan');
-  background: rgba(0, 229, 255, 0.12);
+  color: var(--xb-cyan);
+  background: rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .ctl-btn.active {
-  color: v-bind('THEME.cyan');
+  color: var(--xb-cyan);
 }
 
 .ctl-btn.active svg {
-  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
+  filter: drop-shadow(0 0 4px rgb(var(--xb-cyan-rgb) / 0.8));
 }
 
 .ctl-btn:active {
-  background: rgba(0, 229, 255, 0.22);
+  background: rgb(var(--xb-cyan-rgb) / 0.22);
 }
 </style>

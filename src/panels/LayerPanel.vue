@@ -1,6 +1,5 @@
 <template>
-  <section class="panel">
-    <h2 class="panel-title">图层管理</h2>
+  <PanelChrome title="图层管理">
     <div class="layer-rows">
       <div class="layer-row">
         <span class="layer-label">城市图层</span>
@@ -70,15 +69,15 @@
         <OpacitySlider :value="opacity.labels" @change="emit('change-opacity', 'labels', $event)" />
       </div>
     </div>
-  </section>
+  </PanelChrome>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { THEME } from '../config/theme'
 import type { ScreenMode } from '../composables/useMapLibre'
 import type { LayerOpacityKey, PointStyle } from '../map/layers/boardLayers'
 import OpacitySlider from './OpacitySlider.vue'
+import PanelChrome from './PanelChrome.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 
 const props = defineProps<{
@@ -134,7 +133,7 @@ const POINT_STYLES: { value: PointStyle; label: string }[] = [
   width: 100px;
   font-size: 13px;
   letter-spacing: 1px;
-  color: v-bind('THEME.text');
+  color: var(--xb-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -148,8 +147,8 @@ const POINT_STYLES: { value: PointStyle; label: string }[] = [
   display: flex;
   padding: 2px;
   border-radius: 6px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-cyan-rgb) / 0.06);
 }
 
 .seg-btn {
@@ -159,15 +158,15 @@ const POINT_STYLES: { value: PointStyle; label: string }[] = [
   background: transparent;
   font-size: 12px;
   letter-spacing: 1px;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .seg-btn.active {
-  background: rgba(0, 229, 255, 0.24);
-  color: v-bind('THEME.text');
-  box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.2);
+  background: rgb(var(--xb-cyan-rgb) / 0.24);
+  color: var(--xb-text);
+  box-shadow: inset 0 0 8px rgb(var(--xb-cyan-rgb) / 0.2);
 }
 
 .seg-btn:disabled {

@@ -25,7 +25,6 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { THEME } from '../config/theme'
 import type { Period } from '../services/dataSource'
 
 const props = defineProps<{
@@ -76,10 +75,10 @@ onUnmounted(() => window.clearInterval(timer))
   width: 560px;
   padding: 10px 18px;
   border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .play-btn {
@@ -89,16 +88,16 @@ onUnmounted(() => window.clearInterval(timer))
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: rgba(0, 229, 255, 0.1);
-  color: v-bind('THEME.cyan');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-cyan-rgb) / 0.1);
+  color: var(--xb-cyan);
   cursor: pointer;
   transition: all 0.25s ease;
 }
 
 .play-btn:hover {
-  background: rgba(0, 229, 255, 0.22);
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
+  background: rgb(var(--xb-cyan-rgb) / 0.22);
+  box-shadow: 0 0 12px rgb(var(--xb-cyan-rgb) / 0.45);
 }
 
 .glyph {
@@ -116,7 +115,7 @@ onUnmounted(() => window.clearInterval(timer))
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.35), rgba(0, 229, 255, 0.1));
+  background: linear-gradient(90deg, rgb(var(--xb-cyan-rgb) / 0.35), rgb(var(--xb-cyan-rgb) / 0.1));
   outline: none;
   cursor: pointer;
 }
@@ -126,18 +125,18 @@ onUnmounted(() => window.clearInterval(timer))
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: v-bind('THEME.cyan');
+  background: var(--xb-cyan);
   border: 2px solid #eafcff;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+  box-shadow: 0 0 10px rgb(var(--xb-cyan-rgb) / 0.8);
 }
 
 .slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: v-bind('THEME.cyan');
+  background: var(--xb-cyan);
   border: 2px solid #eafcff;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+  box-shadow: 0 0 10px rgb(var(--xb-cyan-rgb) / 0.8);
 }
 
 .period-label {
@@ -147,6 +146,6 @@ onUnmounted(() => window.clearInterval(timer))
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
-  color: v-bind('THEME.cyanSoft');
+  color: var(--xb-cyan-soft);
 }
 </style>

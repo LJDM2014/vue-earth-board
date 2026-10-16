@@ -4,6 +4,7 @@ import { markRaw, onMounted, onUnmounted, ref, shallowRef, type Ref, type Shallo
 import { ACTIVE_BASEMAP, type BasemapOption } from '../config/basemap'
 import type { CameraPreset } from '../config/cameras'
 import { reportMonitorEvent } from '../services/monitor'
+import { scheduleContextLostReload } from '../services/reloadGuard'
 
 /** symbol 标注所需的 glyph 字体服务（免 key、含 CJK）：统一样式的 glyphs 来源 */
 const GLYPHS_URL = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf'
@@ -155,7 +156,8 @@ export function useMapLibre(container: Ref<HTMLElement | null>) {
         container: el,
         style: ACTIVE_BASEMAP.styleUrl,
         center: INITIAL_CENTER,
-        zoom: INITIAL_ZOOM,
+        // 开场自更远处推近（M8.3）：load 后 flyTo 到正式机位，呈现「入场推进」感
+        zoom: INITIAL_ZOOM - 0.9,
         attributionControl: { compact: true },
       }),
     )
@@ -189,19 +191,23 @@ export function useMapLibre(container: Ref<HTMLElement | null>) {
       }
     })
 
-    // WebGL 上下文丢失：显卡驱动重置 / GPU 资源耗尽时大屏会黑屏，上报位供现场快速定位（M4.6）
+    // WebGL 上下文丢失：显卡驱动重置 / GPU 资源耗尽时大屏会黑屏，上报位供现场快速定位（M4.6）；
+    // 生产构建 3s 后整页自愈重载，10 分钟窗口 >3 次自动停止防崩溃循环（M9.3）
     const canvas = map.getCanvas()
     const onContextLost = (e: Event) => {
       e.preventDefault()
       reportMonitorEvent({ type: 'webgl-context-lost' })
+      scheduleContextLostReload()
     }
     canvas.addEventListener('webglcontextlost', onContextLost)
     detachContextLost = () => canvas.removeEventListener('webglcontextlost', onContextLost)
 
-    // 地图就绪后启动自转；任意用户交互暂停 5 秒后恢复
+    // 地图就绪后开场推近（M8.3），推近结束再启动自转——
+    // moveend 桥接避免自转 rAF setCenter 与 flyTo 补间打架
     map.on('load', () => {
       mapReady.value = map
-      startRotation()
+      map.flyTo({ center: INITIAL_CENTER, zoom: INITIAL_ZOOM, duration: 2500, essential: true })
+      map.once('moveend', () => startRotation())
     })
 
     for (const evt of INTERACTION_EVENTS) {

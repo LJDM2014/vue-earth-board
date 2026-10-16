@@ -39,7 +39,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { BASEMAP_OPTIONS, type BasemapOption } from '../config/basemap'
-import { THEME } from '../config/theme'
 
 const props = defineProps<{ /** 当前底图 id */ modelValue: string }>()
 
@@ -79,27 +78,27 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   width: 100%;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   font-size: 13px;
   letter-spacing: 1px;
   cursor: pointer;
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
   transition: all 0.25s ease;
 }
 
 .trigger:hover {
-  color: v-bind('THEME.cyanSoft');
-  border-color: v-bind('THEME.cyan');
+  color: var(--xb-cyan-soft);
+  border-color: var(--xb-cyan);
 }
 
 .globe-icon {
   width: 16px;
   height: 16px;
   flex: none;
-  color: v-bind('THEME.cyan');
+  color: var(--xb-cyan);
 }
 
 .trigger-name {
@@ -130,8 +129,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   padding: 6px;
   list-style: none;
   border-radius: 12px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(10px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
@@ -145,7 +144,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   font-size: 13px;
   letter-spacing: 1px;
   cursor: pointer;
@@ -153,12 +152,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .option:hover {
-  color: v-bind('THEME.text');
-  background: rgba(0, 229, 255, 0.1);
+  color: var(--xb-text);
+  background: rgb(var(--xb-cyan-rgb) / 0.1);
 }
 
 .option.active {
-  color: v-bind('THEME.cyan');
+  color: var(--xb-cyan);
 }
 
 .check {

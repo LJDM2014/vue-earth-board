@@ -13,8 +13,6 @@
 </template>
 
 <script setup lang="ts">
-import { THEME } from '../config/theme'
-
 withDefaults(
   defineProps<{
     /** 开关状态 */
@@ -36,8 +34,8 @@ const emit = defineEmits<{ change: [enabled: boolean] }>()
   width: 46px;
   height: 24px;
   border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-cyan-rgb) / 0.08);
   cursor: pointer;
   transition: all 0.25s ease;
 }
@@ -49,19 +47,19 @@ const emit = defineEmits<{ change: [enabled: boolean] }>()
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: v-bind('THEME.textDim');
+  background: var(--xb-text-dim);
   transition: all 0.25s ease;
 }
 
 .toggle.on {
-  background: rgba(0, 229, 255, 0.22);
-  border-color: v-bind('THEME.cyan');
+  background: rgb(var(--xb-cyan-rgb) / 0.22);
+  border-color: var(--xb-cyan);
 }
 
 .toggle.on .knob {
   left: 24px;
-  background: v-bind('THEME.cyan');
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+  background: var(--xb-cyan);
+  box-shadow: 0 0 10px rgb(var(--xb-cyan-rgb) / 0.8);
 }
 
 .toggle:disabled {

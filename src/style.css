@@ -1,7 +1,59 @@
-/* 全局基础样式：深色大屏底色 + 面板公共外观（与 theme.ts 保持一致） */
+/* 全局基础样式：多主题 CSS 变量（M8.2，与 theme.ts THEMES 注册表保持一致）+ 大屏布局定位 */
 :root {
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
   color-scheme: dark;
+
+  /* ── deep-space 深空青（缺省主题，hex 与 rgb 通道一一对应）── */
+  --xb-bg-deep: #040b18;
+  --xb-bg-deep-rgb: 4 11 24;
+  --xb-panel-rgb: 7 19 38;
+  --xb-border-rgb: 0 229 255;
+  --xb-cyan: #00e5ff;
+  --xb-cyan-rgb: 0 229 255;
+  --xb-cyan-soft: #7be8ff;
+  --xb-text: #d7f5ff;
+  --xb-text-dim: #5f7d93;
+  --xb-gold: #ffc24d;
+  --xb-gold-rgb: 255 194 77;
+  --xb-panel-corner: #37f2ff;
+  --xb-panel-corner-rgb: 55 242 255;
+  --xb-title-accent: #00e5ff;
+}
+
+/* ── violet-night 紫夜 ── */
+[data-theme='violet-night'] {
+  --xb-bg-deep: #0a0718;
+  --xb-bg-deep-rgb: 10 7 24;
+  --xb-panel-rgb: 16 10 36;
+  --xb-border-rgb: 180 124 255;
+  --xb-cyan: #b47cff;
+  --xb-cyan-rgb: 180 124 255;
+  --xb-cyan-soft: #d3aaff;
+  --xb-text: #ecdfff;
+  --xb-text-dim: #8a7ba8;
+  --xb-gold: #ffc24d;
+  --xb-gold-rgb: 255 194 77;
+  --xb-panel-corner: #c98bff;
+  --xb-panel-corner-rgb: 201 139 255;
+  --xb-title-accent: #b47cff;
+}
+
+/* ── aurora-teal 极光青 ── */
+[data-theme='aurora-teal'] {
+  --xb-bg-deep: #03120f;
+  --xb-bg-deep-rgb: 3 18 15;
+  --xb-panel-rgb: 6 26 24;
+  --xb-border-rgb: 46 255 180;
+  --xb-cyan: #2effb4;
+  --xb-cyan-rgb: 46 255 180;
+  --xb-cyan-soft: #8affd9;
+  --xb-text: #dcfff2;
+  --xb-text-dim: #5f9384;
+  --xb-gold: #ffc24d;
+  --xb-gold-rgb: 255 194 77;
+  --xb-panel-corner: #5cffd0;
+  --xb-panel-corner-rgb: 92 255 208;
+  --xb-title-accent: #2effb4;
 }
 
 * {
@@ -16,29 +68,151 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #040b18;
+  background: var(--xb-bg-deep);
 }
 
-/* 左右数据面板公共外壳 */
-.panel {
+/* 左右数据面板公共外壳已组件化为 src/panels/PanelChrome.vue（M6.1），
+   此处不再保留 .panel/.panel-title 全局样式 */
+
+/* ── 入场编排（M8.3）：BootOverlay 退场后按 --enter-order 逐组升起 ──
+   用独立 translate 属性补间，不与居中元素的 transform:translateX(-50%) 冲突 */
+.board:not(.entered) [data-enter] {
+  opacity: 0;
+}
+
+.board.entered [data-enter] {
+  animation: enter-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--enter-order, 0) * 300ms);
+}
+
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board.entered [data-enter] {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ── 地图四角 HUD 角标（M8.4）：单伪元素 8 段渐变拼四角 L 形，地图上、面板下 ── */
+.board::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  z-index: 15;
+  pointer-events: none;
+  background-image: linear-gradient(var(--xb-cyan), var(--xb-cyan));
+  background-position:
+    left top,
+    left top,
+    right top,
+    right top,
+    left bottom,
+    left bottom,
+    right bottom,
+    right bottom;
+  background-size:
+    28px 2px,
+    2px 28px,
+    28px 2px,
+    2px 28px,
+    28px 2px,
+    2px 28px,
+    28px 2px,
+    2px 28px;
+  background-repeat: no-repeat;
+  opacity: 0.6;
+  filter: drop-shadow(0 0 6px rgb(var(--xb-cyan-rgb) / 0.6));
+}
+
+/* ── 大屏布局定位（M7.6 自 App.vue 移入）：组件只负责自身外观，坐标统一在此 ──
+   注意：.map-container 需两级选择器压过 maplibre-gl.css 的 .maplibregl-map{position:relative}，
+   否则（同为 0-1-0 时后注入的 maplibre 样式获胜）容器退化为 relative 高度塌陷 */
+.board {
+  position: absolute;
+  inset: 0;
+}
+
+.board .map-container {
+  position: absolute;
+  inset: 0;
+}
+
+/* !important：PanelChrome scoped 样式 .panel-chrome[data-v-x]{position:relative} 特异性 0-2-0，
+   会压过本文件 0-1-0 的 absolute（position 非继承属性，逐项覆盖），导致面板退化文档流堆叠 */
+.panel-pos {
+  position: absolute !important;
+  top: 108px;
+  z-index: 10;
+}
+
+.panel-right {
+  right: 28px;
   width: 340px;
-  padding: 14px 18px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 229, 255, 0.22);
-  background: rgba(7, 19, 38, 0.82);
-  backdrop-filter: blur(6px);
-  box-shadow:
-    0 0 24px rgba(0, 229, 255, 0.08),
-    inset 0 0 18px rgba(0, 229, 255, 0.05);
-  color: #d7f5ff;
 }
 
-.panel-title {
-  margin: 0 0 14px;
-  padding-left: 10px;
-  border-left: 3px solid #00e5ff;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  color: #7be8ff;
+.left-stack {
+  position: absolute;
+  top: 108px;
+  left: 28px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 340px;
+}
+
+.crumb-pos {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.region-nav-pos {
+  position: absolute;
+  top: 134px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.timeline-pos {
+  position: absolute;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.mode-switch-pos {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.basemap-pos {
+  position: absolute;
+  left: 28px;
+  bottom: 30px;
+  z-index: 10;
+}
+
+.map-controls-pos {
+  position: absolute;
+  right: 28px;
+  bottom: 30px;
+  z-index: 10;
 }

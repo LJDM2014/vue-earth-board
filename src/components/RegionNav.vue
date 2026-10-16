@@ -36,7 +36,6 @@
 </template>
 
 <script setup lang="ts">
-import { THEME } from '../config/theme'
 import { CAMERA_PRESETS, type CameraPreset } from '../config/cameras'
 
 defineProps<{
@@ -61,10 +60,10 @@ const emit = defineEmits<{
   gap: 4px;
   padding: 4px 6px;
   border-radius: 12px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .nav-btn {
@@ -74,7 +73,7 @@ const emit = defineEmits<{
   background: transparent;
   font-size: 13px;
   letter-spacing: 2px;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   cursor: pointer;
   transition: all 0.25s ease;
   display: flex;
@@ -83,21 +82,21 @@ const emit = defineEmits<{
 }
 
 .nav-btn:hover {
-  color: v-bind('THEME.text');
-  background: rgba(0, 229, 255, 0.12);
+  color: var(--xb-text);
+  background: rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .nav-btn.active {
-  color: v-bind('THEME.cyan');
-  background: rgba(0, 229, 255, 0.16);
-  box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.22);
+  color: var(--xb-cyan);
+  background: rgb(var(--xb-cyan-rgb) / 0.16);
+  box-shadow: inset 0 0 10px rgb(var(--xb-cyan-rgb) / 0.22);
 }
 
 .divider {
   width: 1px;
   height: 16px;
   margin: 0 4px;
-  background: v-bind('THEME.borderGlow');
+  background: rgb(var(--xb-border-rgb) / 0.22);
 }
 
 .tour-btn svg {
@@ -106,7 +105,7 @@ const emit = defineEmits<{
 }
 
 .tour-btn.active svg {
-  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
+  filter: drop-shadow(0 0 4px rgb(var(--xb-cyan-rgb) / 0.8));
 }
 
 .tour-tip {
@@ -115,7 +114,7 @@ const emit = defineEmits<{
   gap: 6px;
   font-size: 12px;
   letter-spacing: 1px;
-  color: v-bind('THEME.cyanSoft');
+  color: var(--xb-cyan-soft);
   white-space: nowrap;
 }
 
@@ -123,8 +122,8 @@ const emit = defineEmits<{
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: v-bind('THEME.cyan');
-  box-shadow: 0 0 6px v-bind('THEME.cyan');
+  background: var(--xb-cyan);
+  box-shadow: 0 0 6px var(--xb-cyan);
   animation: pulse 1.2s ease-in-out infinite;
 }
 

@@ -15,7 +15,6 @@
 
 <script setup lang="ts">
 import type { ScreenMode } from '../composables/useMapLibre'
-import { THEME } from '../config/theme'
 
 defineProps<{ mode: ScreenMode }>()
 
@@ -32,10 +31,10 @@ const OPTIONS: { value: ScreenMode; label: string }[] = [
   display: flex;
   padding: 4px;
   border-radius: 999px;
-  border: 1px solid v-bind('THEME.borderGlow');
-  background: v-bind('THEME.bgPanel');
+  border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
+  background: rgb(var(--xb-panel-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 18px rgb(var(--xb-cyan-rgb) / 0.12);
 }
 
 .mode-btn {
@@ -43,7 +42,7 @@ const OPTIONS: { value: ScreenMode; label: string }[] = [
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: v-bind('THEME.textDim');
+  color: var(--xb-text-dim);
   font-size: 14px;
   letter-spacing: 2px;
   cursor: pointer;
@@ -51,14 +50,14 @@ const OPTIONS: { value: ScreenMode; label: string }[] = [
 }
 
 .mode-btn:hover {
-  color: v-bind('THEME.cyanSoft');
+  color: var(--xb-cyan-soft);
 }
 
 .mode-btn.active {
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.28), rgba(0, 229, 255, 0.12));
-  color: v-bind('THEME.text');
+  background: linear-gradient(180deg, rgb(var(--xb-cyan-rgb) / 0.28), rgb(var(--xb-cyan-rgb) / 0.12));
+  color: var(--xb-text);
   box-shadow:
-    inset 0 0 12px rgba(0, 229, 255, 0.25),
-    0 0 10px rgba(0, 229, 255, 0.2);
+    inset 0 0 12px rgb(var(--xb-cyan-rgb) / 0.25),
+    0 0 10px rgb(var(--xb-cyan-rgb) / 0.2);
 }
 </style>
