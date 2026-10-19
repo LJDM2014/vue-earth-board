@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "target": "es2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode：与 tsx(esbuild) 运行时解析一致，允许无扩展名相对导入 */
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "incremental": true,
+
+    /* Linting（对齐 tsconfig.node.json） */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "strict": true
+  },
+  "include": ["**/*.ts", "../src/mock/cities.ts", "../src/mock/flows.ts", "../src/mock/series.ts"]
+}

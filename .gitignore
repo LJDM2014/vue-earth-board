@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# 后台数据管理模块：API 服务运行时数据（种子自动生成）
+server/data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

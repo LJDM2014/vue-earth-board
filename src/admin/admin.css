@@ -1,0 +1,240 @@
+/**
+ * 后台管理样式（A3）：deep-space 科技风 token 延续 + Element Plus 暗色变量微调。
+ * 本文件在 main.ts 中最后引入，同特异性下覆盖 EP 默认变量（EP dark 也用 html.dark 选择器）。
+ */
+
+:root {
+  --xb-bg: #040b18;
+  --xb-panel: #0a1526;
+  --xb-panel-2: #0d1b30;
+  --xb-border: rgba(0, 229, 255, 0.22);
+  --xb-cyan: #00e5ff;
+  --xb-cyan-soft: #7be8ff;
+  --xb-gold: #ffc24d;
+  --xb-text: #d7f5ff;
+  --xb-text-dim: #5f7d93;
+  --xb-danger: #ff6052;
+}
+
+/* Element Plus 暗色变量微调：主色梯队对齐 --xb-cyan，底色/描边对齐 deep-space */
+html.dark {
+  --el-color-primary: #00e5ff;
+  --el-color-primary-light-3: #1ec2d8;
+  --el-color-primary-light-5: #0f8fa8;
+  --el-color-primary-light-7: #0a5c70;
+  --el-color-primary-light-8: #083f52;
+  --el-color-primary-light-9: #062433;
+  --el-color-primary-dark-2: #66edff;
+  --el-bg-color: #0a1526;
+  --el-bg-color-page: #040b18;
+  --el-bg-color-overlay: #0d1b30;
+  --el-fill-color-blank: #0a1526;
+  --el-fill-color-light: rgba(0, 229, 255, 0.06);
+  --el-border-color: rgba(0, 229, 255, 0.16);
+  --el-border-color-light: rgba(0, 229, 255, 0.12);
+  --el-border-color-lighter: rgba(0, 229, 255, 0.08);
+  --el-text-color-primary: #d7f5ff;
+  --el-text-color-regular: #a9c6d6;
+  --el-text-color-secondary: #5f7d93;
+  --el-color-danger: #ff6052;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--xb-bg);
+  color: var(--xb-text);
+  font-size: 14px;
+}
+
+/* ---------- 整体布局：左侧固定导航 + 右侧主区 ---------- */
+
+.admin-shell {
+  display: flex;
+  height: 100%;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(0, 229, 255, 0.07), transparent 60%),
+    var(--xb-bg);
+}
+
+.admin-aside {
+  width: 216px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--xb-border);
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.05), transparent 30%), var(--xb-panel);
+}
+
+.brand {
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid var(--xb-border);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: var(--xb-cyan);
+}
+
+.brand p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--xb-text-dim);
+}
+
+.admin-menu {
+  flex: 1;
+  border-right: none;
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--xb-text-dim);
+  --el-menu-hover-bg-color: rgba(0, 229, 255, 0.08);
+  --el-menu-active-color: var(--xb-cyan);
+}
+
+.admin-menu .el-menu-item {
+  height: 48px;
+}
+
+.admin-menu .el-menu-item.is-active {
+  background: rgba(0, 229, 255, 0.1);
+  border-right: 2px solid var(--xb-cyan);
+}
+
+.aside-foot {
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--xb-text-dim);
+  border-top: 1px solid rgba(0, 229, 255, 0.1);
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 顶栏 ---------- */
+
+.admin-topbar {
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--xb-border);
+  background: rgba(10, 21, 38, 0.6);
+}
+
+.admin-topbar h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--xb-text);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.updated {
+  color: var(--xb-text-dim);
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--xb-border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--xb-cyan);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.health-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+  box-shadow: 0 0 6px currentcolor;
+}
+
+.health-badge.bad {
+  color: #ff7a6e;
+  border-color: rgba(255, 96, 82, 0.4);
+  background: rgba(255, 96, 82, 0.08);
+}
+
+.board-link {
+  color: var(--xb-cyan-soft);
+  text-decoration: none;
+  border: 1px solid var(--xb-border);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.board-link:hover {
+  color: var(--xb-cyan);
+  border-color: var(--xb-cyan);
+}
+
+/* ---------- 内容区 ---------- */
+
+.admin-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.page {
+  min-height: 100%;
+}
+
+/* ---------- 通用卡片（概览/表格页复用） ---------- */
+
+.card {
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.04), transparent 40%), var(--xb-panel);
+  border: 1px solid rgba(0, 229, 255, 0.14);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.card > h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--xb-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card > h3::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--xb-cyan);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--xb-cyan);
+}
