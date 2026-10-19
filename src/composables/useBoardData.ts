@@ -35,7 +35,11 @@ function lruPut<V>(cache: Map<string, V>, key: string, value: V): void {
  */
 export function useBoardData(
   sourceRef: Ref<BoardDataSource | null> | ShallowRef<BoardDataSource | null>,
-  options: { refreshIntervalMs?: number | Ref<number | undefined> } = {},
+  options: {
+    refreshIntervalMs?: number | Ref<number | undefined>
+    /** 实时推送订阅开关（默认关闭）：开启后当前期快照随推送微扰演化 */
+    realtimePush?: boolean | Ref<boolean>
+  } = {},
 ) {
   const periods = ref<Period[]>([])
   const period = ref<Period>('')
@@ -133,13 +137,16 @@ export function useBoardData(
     if (period.value) void loadHistory(period.value, activeMetric.value)
   })
 
-  // ── 实时推送（可选能力）：订阅当前期，推送快照直写 refs 与缓存；
-  // 周期切换先退订旧期再订新期，全部退订由 onUnmounted 收口 ──
+  // ── 实时推送（可选能力，默认关闭）：开启后订阅当前期，推送快照直写 refs 与缓存；
+  // 周期切换/开关翻转先退订旧订阅再按需重订，全部退订由 onUnmounted 收口 ──
+  const pushEnabled = computed(() =>
+    typeof options.realtimePush === 'object' ? options.realtimePush.value : (options.realtimePush ?? false),
+  )
   let unsubscribe: (() => void) | null = null
-  watch(period, (p, old) => {
-    if (old && unsubscribe) unsubscribe()
+  watch([period, pushEnabled], ([p, enabled]) => {
+    unsubscribe?.()
     unsubscribe = null
-    if (!p) return
+    if (!p || !enabled) return
     const ds = sourceRef.value
     if (!ds || !isRealtimeCapable(ds)) return
     unsubscribe = ds.subscribeCities(p, (next) => {

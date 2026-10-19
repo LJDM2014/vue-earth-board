@@ -3,6 +3,7 @@
     <div class="layer-rows">
       <div class="layer-row">
         <span class="layer-label">城市图层</span>
+        <!-- 散点/3D 柱呈现方式：紧跟「城市图层」标签内联，紧凑尺寸避免换行挤压面板 -->
         <div class="seg" role="group" aria-label="散点呈现方式切换">
           <button
             v-for="opt in POINT_STYLES"
@@ -130,13 +131,11 @@ const POINT_STYLES: { value: PointStyle; label: string }[] = [
 
 .layer-label {
   flex: none;
-  width: 100px;
+  /* 不定宽：各行标签均为 4 字中文自然等宽对齐；「开关+滑杆」由 margin-left:auto 靠右对齐 */
   font-size: 13px;
   letter-spacing: 1px;
   color: var(--xb-text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .layer-row > :nth-last-child(2) {
@@ -144,20 +143,21 @@ const POINT_STYLES: { value: PointStyle; label: string }[] = [
 }
 
 .seg {
-  display: flex;
+  display: inline-flex;
+  margin-left: 2px;
   padding: 2px;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid rgb(var(--xb-border-rgb) / 0.22);
   background: rgb(var(--xb-cyan-rgb) / 0.06);
 }
 
 .seg-btn {
-  padding: 3px 8px;
+  padding: 2px 7px;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
-  font-size: 12px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
   color: var(--xb-text-dim);
   cursor: pointer;
   transition: all 0.2s ease;

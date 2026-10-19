@@ -153,10 +153,10 @@ describe('useBoardData 数据域（M7.5）', () => {
     unmount()
   })
 
-  it('实时推送：数据源具备 RealtimeCapable 时自动订阅，切期先退订旧期', async () => {
+  it('实时推送：开关开启后订阅当前期，切期先退订旧期', async () => {
     const rt = createRealtimeSource(['A', 'B', 'C'])
     const sourceRef = ref<BoardDataSource | null>(rt.source)
-    const { result, unmount } = withSetup(() => useBoardData(sourceRef))
+    const { result, unmount } = withSetup(() => useBoardData(sourceRef, { realtimePush: true }))
     await flushPromises()
     expect(rt.subscribed).toEqual(['B'])
     rt.getPushCb()?.([makeCity('推送')])
@@ -167,6 +167,22 @@ describe('useBoardData 数据域（M7.5）', () => {
     expect(rt.subscribed).toEqual(['B', 'A'])
     unmount()
     expect(rt.unsubscribed).toEqual(['B', 'A']) // 卸载收口退订
+  })
+
+  it('实时推送默认关闭：具备能力也不订阅，开关打开后恢复', async () => {
+    const rt = createRealtimeSource(['A', 'B', 'C'])
+    const sourceRef = ref<BoardDataSource | null>(rt.source)
+    const enabled = ref(false)
+    const { unmount } = withSetup(() => useBoardData(sourceRef, { realtimePush: enabled }))
+    await flushPromises()
+    expect(rt.subscribed).toEqual([]) // 默认不订阅
+    enabled.value = true
+    await flushPromises()
+    expect(rt.subscribed).toEqual(['B']) // 开关打开后恢复订阅
+    enabled.value = false
+    await flushPromises()
+    expect(rt.unsubscribed).toEqual(['B']) // 关闭即退订
+    unmount()
   })
 
   it('无推送能力的数据源不触发订阅', async () => {

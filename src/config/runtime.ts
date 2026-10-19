@@ -17,6 +17,8 @@ export interface BoardConfig {
   dataSource: 'mock' | 'http'
   /** 轮询强刷间隔（毫秒），0 = 关闭轮询 */
   refreshIntervalMs: number
+  /** 实时推送订阅（当前期城市指标微扰推送），默认关闭：数据只随时间轴周期变化 */
+  realtimePush: boolean
   /** 默认主题 */
   theme: ThemeId
   /** 默认激活指标 */
@@ -34,6 +36,7 @@ export const BOARD_CONFIG_DEFAULTS: BoardConfig = {
   title: '寰宇 · 数字地球可视化大屏',
   dataSource: 'mock',
   refreshIntervalMs: 0,
+  realtimePush: false,
   theme: 'deep-space',
   defaultMetric: 'heat',
   tourStepMs: TOUR_STEP_MS,
@@ -45,6 +48,7 @@ const runtimeSchema = z.object({
   title: z.string().min(1).default(BOARD_CONFIG_DEFAULTS.title),
   dataSource: z.enum(['mock', 'http']).default(BOARD_CONFIG_DEFAULTS.dataSource),
   refreshIntervalMs: z.number().int().min(0).max(24 * 60 * 60 * 1000).default(BOARD_CONFIG_DEFAULTS.refreshIntervalMs),
+  realtimePush: z.boolean().default(BOARD_CONFIG_DEFAULTS.realtimePush),
   theme: z.enum(['deep-space', 'violet-night', 'aurora-teal']).default(BOARD_CONFIG_DEFAULTS.theme),
   defaultMetric: z.enum(['heat', 'passenger', 'economy']).default(BOARD_CONFIG_DEFAULTS.defaultMetric),
   tourStepMs: z.number().int().min(3000).default(BOARD_CONFIG_DEFAULTS.tourStepMs),

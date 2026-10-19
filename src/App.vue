@@ -127,6 +127,8 @@ const dataSourceKind = computed(() => dataSourceRef.value?.kind ?? null)
 const { periods, period, cities, flows, prevFlows, cityHistory, activeMetric, refreshCurrent } =
   useBoardData(dataSourceRef, {
     refreshIntervalMs: computed(() => boardConfig.value.refreshIntervalMs),
+    // 实时推送默认关闭：TOP5 数据只随时间轴周期变化，部署方可经 board.config.json 开启
+    realtimePush: computed(() => boardConfig.value.realtimePush),
   })
 const activeCities = computed<CityMetric[]>(() =>
   cities.value.map((c) => ({ ...c, value: c.indicators[activeMetric.value] })),
@@ -170,6 +172,25 @@ const {
 
 const progress = useLoopProgress(LOOP_SECONDS)
 
+/**
+ * 地图缩放响应式信号：驱动 3D 柱径随缩放自适应（metricColumns 像素夹带）。
+ * 'zoom' 事件在推近动画期间高频触发，rAF 合并到每帧一次；'moveend' 兜底
+ * 捕捉平移导致的纬度变化（地面分辨率随纬度余弦变化）。自转只改经度，不会误触发重建。
+ */
+const mapZoom = ref(2.2)
+watch(mapReady, (map) => {
+  if (!map) return
+  let frame = 0
+  const syncZoom = () => {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(() => {
+      mapZoom.value = map.getZoom()
+    })
+  }
+  map.on('zoom', syncZoom)
+  map.on('moveend', syncZoom)
+})
+
 const hoverCityName = ref<string | null>(null)
 const highlightedCity = ref<string | null>(null)
 const hoverFlow = ref<string | null>(null)
@@ -185,6 +206,7 @@ const descriptors = createBoardDescriptors({
   activeMetric,
   flows,
   progress,
+  mapZoom,
   showHeatmap,
   pointStyle,
   showTrips,

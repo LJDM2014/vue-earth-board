@@ -40,6 +40,8 @@ export interface BoardLayerDeps {
   flows: Ref<FlowOD[]>
   /** 全局循环进度 0→1（useLoopProgress 产出） */
   progress: Ref<number>
+  /** 地图当前缩放层级（响应式）：驱动 3D 柱径缩放自适应 */
+  mapZoom: Ref<number>
   /** 热力图显隐 */
   showHeatmap: Ref<boolean>
   /** 散点呈现方式 */
@@ -127,6 +129,7 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
     activeMetric,
     flows,
     progress,
+    mapZoom,
     showHeatmap,
     pointStyle,
     showTrips,
@@ -299,7 +302,9 @@ export function createBoardDescriptors(deps: BoardLayerDeps): LayerDescriptor[] 
       id: 'columns',
       order: 24,
       visible: () => showPoints.value && pointStyle.value === 'column',
-      build: () => [createCityColumnLayer(cities.value, opacity.value.city, cityInteraction())],
+      build: () => [
+        createCityColumnLayer(cities.value, opacity.value.city, cityInteraction(), mapZoom.value),
+      ],
       tooltip: cityTooltip,
     },
     {

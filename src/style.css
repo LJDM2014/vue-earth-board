@@ -203,8 +203,10 @@ body,
   z-index: 10;
 }
 
+/* !important：BasemapSwitch scoped 样式 .basemap-switch[data-v-x]{position:relative}（0-2-0）
+   会压过本文件 0-1-0 的 absolute，组件掉回文档流跑到大屏左上、下拉框超出大屏（同 .panel-pos 陷阱） */
 .basemap-pos {
-  position: absolute;
+  position: absolute !important;
   left: 28px;
   bottom: 30px;
   z-index: 10;
