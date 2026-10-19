@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * 数据概览（A4）：KPI 卡 ×5 + 三指标趋势 / 城市 TOP10 / 航线运量 TOP10 / 客货运占比 / 省份覆盖。
  * 数据经 useAdminData 一次拉全量，切周期/切指标纯前端聚合零请求（docs/admin-module-plan.md §5.2）。
@@ -6,7 +6,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { EChartsCoreOption } from 'echarts/core'
-import VbEChart from '../components/VbEChart.vue'
+import VbEChart from '../../components/VbEChart.vue'
 import {
   useAdminData,
   metricSeries,

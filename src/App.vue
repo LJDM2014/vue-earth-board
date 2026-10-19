@@ -12,8 +12,9 @@
         @fly="flyToPreset"
         @toggle-tour="tourActive ? stopTour() : startTour()"
       />
-      <!-- 左侧面板栈：榜单 + 图层管理 -->
+      <!-- 左侧面板栈：全国总览 + 榜单 + 图层管理 -->
       <div class="left-stack" data-enter style="--enter-order: 1">
+        <NationKpiPanel :cities="cities" :prev-cities="prevCities" />
         <TopCityPanel
           :cities="activeCities"
           :metric="activeMetric"
@@ -45,14 +46,11 @@
           @change-opacity="setOpacity"
         />
       </div>
-      <FlowStatPanel
-        class="panel-pos panel-right"
-        data-enter
-        style="--enter-order: 2"
-        :flows="flows"
-        :prev-flows="prevFlows"
-        @hover-flow="hoverFlow = $event"
-      />
+      <!-- 右列面板栈：航线监测 + 省份分布 -->
+      <div class="right-stack" data-enter style="--enter-order: 2">
+        <FlowStatPanel :flows="flows" :prev-flows="prevFlows" @hover-flow="hoverFlow = $event" />
+        <ProvincePanel :cities="activeCities" :metric="activeMetric" />
+      </div>
       <TimelinePlayer v-model="period" class="timeline-pos" data-enter style="--enter-order: 3" :periods="periods" />
       <MapControls
         class="map-controls-pos"
@@ -93,6 +91,8 @@ import TimelinePlayer from './components/TimelinePlayer.vue'
 import TitleBar from './components/TitleBar.vue'
 import FlowStatPanel from './panels/FlowStatPanel.vue'
 import LayerPanel from './panels/LayerPanel.vue'
+import NationKpiPanel from './panels/NationKpiPanel.vue'
+import ProvincePanel from './panels/ProvincePanel.vue'
 import TopCityPanel from './panels/TopCityPanel.vue'
 import { BASEMAP_OPTIONS } from './config/basemap'
 import { CAMERA_PRESETS, type CameraPreset } from './config/cameras'
@@ -124,7 +124,7 @@ const dataSourceKind = computed(() => dataSourceRef.value?.kind ?? null)
 
 // ── 数据域（M7.5）：加载/缓存/推送订阅全部内聚在 useBoardData；
 // 轮询间隔走响应式运行配置（M9.4），配置加载后动态启停 ──
-const { periods, period, cities, flows, prevFlows, cityHistory, activeMetric, refreshCurrent } =
+const { periods, period, cities, flows, prevCities, prevFlows, cityHistory, activeMetric, refreshCurrent } =
   useBoardData(dataSourceRef, {
     refreshIntervalMs: computed(() => boardConfig.value.refreshIntervalMs),
     // 实时推送默认关闭：TOP5 数据只随时间轴周期变化，部署方可经 board.config.json 开启

@@ -70,9 +70,10 @@ function cometTail(category: FlowCategory): readonly [number, number, number] {
   return [c[0], c[1], c[2]]
 }
 
-/** 航线唯一键（M6.3 面板联动协议：`起点→终点`） */
-export function flowKey(flow: Pick<FlowOD, 'from' | 'to'>): string {
-  return `${flow.from}→${flow.to}`
+/** 航线唯一键：同一 OD 可同时存在客运/货运两条（类别不同），key 必须含 category，
+ * 否则面板 v-for 重复 key 导致切期时 keyed diff 错乱、榜单行内容错位 */
+export function flowKey(flow: Pick<FlowOD, 'from' | 'to' | 'category'>): string {
+  return `${flow.from}→${flow.to}·${flow.category}`
 }
 
 /** 创建静态飞线弧层：显式开启 greatCircle，保证 2D/3D 模式轨迹一致；

@@ -14,7 +14,7 @@
     </div>
 
     <div class="flow-head">
-      <span class="flow-head-title">航线运量 TOP8</span>
+      <span class="flow-head-title">航线运量 TOP10</span>
       <span class="legend">
         <i class="dot passenger" />客运
         <i class="dot cargo" />货运
@@ -96,8 +96,8 @@ const stats = computed(() => {
   ]
 })
 
-/** 运量 TOP8 榜单（M6.3 右侧面板核心内容） */
-const topFlows = computed(() => [...props.flows].sort((a, b) => b.volume - a.volume).slice(0, 8))
+/** 运量 TOP10 榜单（M6.3 右侧面板核心内容，10 行超限滚动） */
+const topFlows = computed(() => [...props.flows].sort((a, b) => b.volume - a.volume).slice(0, 10))
 const maxVolume = computed(() => topFlows.value[0]?.volume ?? 1)
 
 const hoverKey = ref<string | null>(null)
@@ -216,19 +216,6 @@ function onHover(flow: FlowOD | null) {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  max-height: 288px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--xb-cyan-rgb) / 0.35) transparent;
-}
-
-.flow-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.flow-list::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgb(var(--xb-cyan-rgb) / 0.35);
 }
 
 .flow-item {

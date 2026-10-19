@@ -98,6 +98,7 @@ describe('useBoardData 数据域（M7.5）', () => {
     expect(calls.cities.get('B')).toBe(1)
     expect(calls.flows.get('A')).toBe(1) // prevFlows 环比口径
     expect(result.cities.value[0].name).toBe('城-B')
+    expect(result.prevCities.value?.[0].name).toBe('城-A') // prevCities 环比口径
     expect(result.cityHistory.value.get('城-B')).toEqual([1, 2, 3])
     unmount()
   })
@@ -109,13 +110,14 @@ describe('useBoardData 数据域（M7.5）', () => {
     await flushPromises()
     result.period.value = 'A'
     await flushPromises()
-    expect(calls.cities.get('A')).toBe(1)
+    // A 共 2 次：init 阶段作 B 的 prevCities 取过一次 + 本轮快照拉取
+    expect(calls.cities.get('A')).toBe(2)
     result.period.value = 'B'
     await flushPromises()
     result.period.value = 'A'
     await flushPromises()
-    // A/B 均命中缓存：A 仅初次拉取 1 次，B 仅 init 定位拉取 1 次
-    expect(calls.cities.get('A')).toBe(1)
+    // A/B 均命中缓存：A 仍为 2 次，B 仅 init 定位拉取 1 次
+    expect(calls.cities.get('A')).toBe(2)
     expect(calls.cities.get('B')).toBe(1)
     expect(result.cities.value[0].name).toBe('城-A')
     unmount()
@@ -133,11 +135,25 @@ describe('useBoardData 数据域（M7.5）', () => {
       await flushPromises()
     }
     // 13 期全部写入后 p6（最早插入）被淘汰
-    expect(calls.cities.get('p6')).toBe(1)
+    // p6 共 2 次：init 快照 + 循环访问 p7 时作 prevCities
+    expect(calls.cities.get('p6')).toBe(2)
     result.period.value = 'p6'
     await flushPromises()
-    expect(calls.cities.get('p6')).toBe(2) // 缓存已淘汰，重新拉取
-    expect(calls.cities.get('p5')).toBe(1) // 其余仍在缓存
+    expect(calls.cities.get('p6')).toBe(3) // 缓存已淘汰，重新拉取
+    // p5 共 3 次：init 作 p6 的 prevCities、循环访问 p5、回访 p6 再作 prevCities（prevCities 不单独缓存）
+    expect(calls.cities.get('p5')).toBe(3)
+    unmount()
+  })
+
+  it('prevCities：快照携带上一期城市，首期无上期为 null', async () => {
+    const { source } = createFakeSource(['A', 'B', 'C'])
+    const sourceRef = ref<BoardDataSource | null>(source)
+    const { result, unmount } = withSetup(() => useBoardData(sourceRef))
+    await flushPromises()
+    expect(result.prevCities.value?.[0].name).toBe('城-A')
+    result.period.value = 'A'
+    await flushPromises()
+    expect(result.prevCities.value).toBeNull() // 首期无上一期
     unmount()
   })
 
@@ -210,7 +226,8 @@ describe('useBoardData 数据域（M7.5）', () => {
       result.period.value = 'A'
       await flushPromises()
       expect(result.cities.value[0].name).toBe('城-A')
-      expect(calls.cities.get('A')).toBe(1)
+      // A 共 2 次：init 阶段作 X 的 prevCities 取过一次 + 本轮快照拉取
+      expect(calls.cities.get('A')).toBe(2)
       unmount()
     } finally {
       off()

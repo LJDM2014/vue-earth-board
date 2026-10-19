@@ -8,10 +8,11 @@ import { reportMonitorEvent } from '../services/monitor'
 /** 快照缓存容量（期）：与时间轴切片数一致，来回切换零请求 */
 const CACHE_CAPACITY = 12
 
-/** 某周期的完整快照（prevFlows 供航线面板环比） */
+/** 某周期的完整快照（prevCities/prevFlows 供全国 KPI 与航线面板环比） */
 interface PeriodSnapshot {
   cities: CityMetric[]
   flows: FlowOD[]
+  prevCities: CityMetric[] | null
   prevFlows: FlowOD[] | null
 }
 
@@ -45,6 +46,8 @@ export function useBoardData(
   const period = ref<Period>('')
   const cities = ref<CityMetric[]>([])
   const flows = ref<FlowOD[]>([])
+  /** 上一期城市快照（全国 KPI 环比口径，首期无上期为 null） */
+  const prevCities = ref<CityMetric[] | null>(null)
   const prevFlows = ref<FlowOD[] | null>(null)
   /** 城市近 N 期历史：tooltip sparkline，口径随激活指标 */
   const cityHistory = ref<Map<string, number[]>>(new Map())
@@ -58,6 +61,7 @@ export function useBoardData(
   function applySnapshot(p: Period, snap: PeriodSnapshot) {
     cities.value = snap.cities
     flows.value = snap.flows
+    prevCities.value = snap.prevCities
     prevFlows.value = snap.prevFlows
     lruPut(snapshotCache, p, snap)
   }
@@ -75,12 +79,18 @@ export function useBoardData(
     try {
       const idx = periods.value.indexOf(p)
       const prevPeriod = idx > 0 ? periods.value[idx - 1] : null
-      const [nextCities, nextFlows, nextPrevFlows] = await Promise.all([
+      const [nextCities, nextFlows, nextPrevCities, nextPrevFlows] = await Promise.all([
         ds.getCities(p),
         ds.getFlows(p),
+        prevPeriod ? ds.getCities(prevPeriod) : Promise.resolve(null),
         prevPeriod ? ds.getFlows(prevPeriod) : Promise.resolve(null),
       ])
-      applySnapshot(p, { cities: nextCities, flows: nextFlows, prevFlows: nextPrevFlows })
+      applySnapshot(p, {
+        cities: nextCities,
+        flows: nextFlows,
+        prevCities: nextPrevCities,
+        prevFlows: nextPrevFlows,
+      })
     } catch (err) {
       reportMonitorEvent({ type: 'data-source-error', source: 'period-fetch', detail: String(err) })
     } finally {
@@ -150,7 +160,12 @@ export function useBoardData(
     const ds = sourceRef.value
     if (!ds || !isRealtimeCapable(ds)) return
     unsubscribe = ds.subscribeCities(p, (next) => {
-      applySnapshot(p, { cities: next, flows: flows.value, prevFlows: prevFlows.value })
+      applySnapshot(p, {
+        cities: next,
+        flows: flows.value,
+        prevCities: prevCities.value,
+        prevFlows: prevFlows.value,
+      })
     })
   })
 
@@ -194,6 +209,7 @@ export function useBoardData(
     period,
     cities,
     flows,
+    prevCities,
     prevFlows,
     cityHistory,
     activeMetric,

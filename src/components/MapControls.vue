@@ -60,7 +60,7 @@ const emit = defineEmits<{
 <style scoped>
 .map-controls {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 2px;
   padding: 4px;
   border-radius: 12px;

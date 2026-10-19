@@ -157,7 +157,7 @@ describe('弧线联动高亮（M6.3）', () => {
   })
 
   it('命中航线提亮加粗，未命中压暗', () => {
-    const layer = createFlowArcLayer(paths, [50, 90], 1, 'a→b')
+    const layer = createFlowArcLayer(paths, [50, 90], 1, 'a→b·passenger')
     // 客运高亮随主题主色（M8.2）：取 DECK_COLORS.regionHoverLine
     expect(sourceColorOf(layer, paths[0])).toEqual([...DECK_COLORS.regionHoverLine])
     // 未命中：压暗为 DIM_ALPHA
@@ -168,7 +168,7 @@ describe('弧线联动高亮（M6.3）', () => {
   })
 
   it('彗星尾迹：命中保持亮度，未命中压暗至 30%', () => {
-    const lit = buildCometPoints([paths[0]], 0.5, 'a→b')
+    const lit = buildCometPoints([paths[0]], 0.5, 'a→b·passenger')
     expect(lit[0].color[3]).toBe(255)
     const dim = buildCometPoints([paths[0]], 0.5, '其他→航线')
     expect(dim[0].color[3]).toBe(Math.round(255 * 0.3))
